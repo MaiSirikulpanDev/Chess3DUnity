@@ -143,6 +143,39 @@ namespace Chess.PlayTests
             yield return Shot("8_level_easy");
         }
 
+        // The mouse maps a screen point to a square through the camera; check every square from the start view.
+        [UnityTest]
+        public IEnumerator ScreenPoints_MapToTheirSquares_FromTheDefaultCamera()
+        {
+            yield return null;
+            AssertEverySquareIsClickable();
+        }
+
+        [UnityTest]
+        public IEnumerator RotatingTheView_KeepsEverySquareClickable_AndSwingsTheCamera()
+        {
+            Assert.Less(Camera.main.transform.position.z, 0, "White's side to begin with");
+            view.RotateView(180);
+            yield return new WaitForSeconds(1.5f);
+            Assert.Greater(Camera.main.transform.position.z, 10f, "now looking from Black's side");
+            AssertEverySquareIsClickable();
+            yield return Shot("9_view_from_black");
+
+            view.RotateView(-90);
+            yield return new WaitForSeconds(1.5f);
+            AssertEverySquareIsClickable();
+            yield return Shot("10_view_from_the_side");
+        }
+
+        void AssertEverySquareIsClickable()
+        {
+            for (int sq = 0; sq < 64; sq++)
+            {
+                var onScreen = Camera.main.WorldToScreenPoint(view.SquarePos(sq) + Vector3.up * 0.068f);
+                Assert.AreEqual(sq, view.SquareAt(onScreen), Board.Name(sq));
+            }
+        }
+
         [UnityTest]
         public IEnumerator Undo_WithNothingToTakeBack_ChangesNothing()
         {

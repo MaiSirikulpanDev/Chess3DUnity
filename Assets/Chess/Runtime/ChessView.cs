@@ -33,6 +33,8 @@ namespace Chess.View
         GameObject picker; // the Queen / Rook / Bishop / Knight choice shown when a pawn reaches the last rank
         Button undoButton, levelButton;
         int level = 1;
+        Vector3 cameraOffset; // where the camera starts, relative to the board centre
+        float yaw, targetYaw;
         Font font;
 
         public string StatusText => statusText.text;
@@ -41,6 +43,7 @@ namespace Chess.View
 
         void Start()
         {
+            cameraOffset = Camera.main.transform.position;
             BuildUi();
             NewGame();
         }
@@ -57,18 +60,42 @@ namespace Chess.View
                 Refresh();
             }
 
+            OrbitCamera();
+
             if (Mouse.current != null && Mouse.current.leftButton.wasPressedThisFrame &&
                 !(EventSystem.current != null && EventSystem.current.IsPointerOverGameObject()))
             {
-                var ray = Camera.main.ScreenPointToRay(Mouse.current.position.ReadValue());
-                if (new Plane(Vector3.up, new Vector3(0, FieldY, 0)).Raycast(ray, out float d))
-                {
-                    var p = ray.GetPoint(d);
-                    int f = Mathf.FloorToInt(p.x / squareSize + 4), r = Mathf.FloorToInt(p.z / squareSize + 4);
-                    if (f >= 0 && f < 8 && r >= 0 && r < 8) Click(r * 8 + f);
-                }
+                int sq = SquareAt(Mouse.current.position.ReadValue());
+                if (sq >= 0) Click(sq);
             }
         }
+
+        // The square under a screen point, or -1 off the board.
+        public int SquareAt(Vector2 screen)
+        {
+            var ray = Camera.main.ScreenPointToRay(screen);
+            if (!new Plane(Vector3.up, new Vector3(0, FieldY, 0)).Raycast(ray, out float d)) return -1;
+            var p = ray.GetPoint(d);
+            int f = Mathf.FloorToInt(p.x / squareSize + 4), r = Mathf.FloorToInt(p.z / squareSize + 4);
+            return f >= 0 && f < 8 && r >= 0 && r < 8 ? r * 8 + f : -1;
+        }
+
+        // Turns the camera round the board: A/D or the arrow keys, right mouse drag, or the Flip View button.
+        void OrbitCamera()
+        {
+            var keys = Keyboard.current;
+            if (keys != null)
+                targetYaw += ((keys.dKey.isPressed || keys.rightArrowKey.isPressed ? 1 : 0) - (keys.aKey.isPressed || keys.leftArrowKey.isPressed ? 1 : 0)) * 90f * Time.deltaTime;
+            if (Mouse.current != null && Mouse.current.rightButton.isPressed)
+                targetYaw += Mouse.current.delta.ReadValue().x * 0.3f;
+
+            yaw = Mathf.LerpAngle(yaw, targetYaw, 1 - Mathf.Exp(-10 * Time.deltaTime));
+            var cam = Camera.main.transform;
+            cam.position = Quaternion.Euler(0, yaw, 0) * cameraOffset;
+            cam.LookAt(Vector3.zero);
+        }
+
+        public void RotateView(float degrees) => targetYaw += degrees;
 
         // Starts a game from an arbitrary position (used by tests).
         public void StartFrom(string fen)
@@ -147,7 +174,7 @@ namespace Chess.View
                 if (pieces[sq] != null) pieces[sq].transform.position = SquarePos(sq);
         }
 
-        Vector3 SquarePos(int sq) => new Vector3((sq % 8 - 3.5f) * squareSize, 0, (sq / 8 - 3.5f) * squareSize);
+        public Vector3 SquarePos(int sq) => new Vector3((sq % 8 - 3.5f) * squareSize, 0, (sq / 8 - 3.5f) * squareSize);
 
         void Refresh()
         {
@@ -252,6 +279,7 @@ namespace Chess.View
             undoButton = MakeButton(canvasGo.transform, "Undo", new Vector2(1, 1), new Vector2(-110, -100), new Vector2(180, 50), Undo);
             levelButton = MakeButton(canvasGo.transform, "", new Vector2(1, 1), new Vector2(-110, -160), new Vector2(180, 50), CycleLevel);
             levelButton.GetComponentInChildren<Text>().text = "Level: " + LevelName;
+            MakeButton(canvasGo.transform, "Flip View", new Vector2(1, 1), new Vector2(-110, -220), new Vector2(180, 50), () => RotateView(180));
 
             picker = new GameObject("Promotion", typeof(Image));
             picker.transform.SetParent(canvasGo.transform, false);

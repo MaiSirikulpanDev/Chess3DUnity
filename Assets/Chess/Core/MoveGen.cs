@@ -13,6 +13,8 @@ namespace Chess.Core
         public override string ToString() => Board.Name(From) + Board.Name(To) + (Promo == '\0' ? "" : Promo.ToString());
     }
 
+    public enum GameStatus { Ongoing, Checkmate, Stalemate }
+
     public static class MoveGen
     {
         static readonly (int f, int r)[] Orthogonal = { (1, 0), (-1, 0), (0, 1), (0, -1) };
@@ -45,6 +47,9 @@ namespace Chess.Core
 
         public static List<Move> Legal(Board b) =>
             PseudoLegal(b).Where(m => !InCheck(b.Apply(m), b.WhiteToMove)).ToList();
+
+        public static GameStatus Status(Board b) =>
+            Legal(b).Count > 0 ? GameStatus.Ongoing : InCheck(b, b.WhiteToMove) ? GameStatus.Checkmate : GameStatus.Stalemate;
 
         public static bool InCheck(Board b, bool white) =>
             IsAttacked(b, System.Array.IndexOf(b.Squares, white ? 'K' : 'k'), !white);

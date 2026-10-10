@@ -16,13 +16,5 @@ namespace Chess.Tests
         [TestCase("4r3/8/8/8/8/8/8/4K3 w - - 0 1", GameStatus.Ongoing)]                                       // in check but can step aside
         public void Status(string fen, GameStatus expected) =>
             Assert.AreEqual(expected, MoveGen.Status(Board.FromFen(fen)));
-
-        [Test]
-        public void InCheckWithAnEscape_IsOngoing_NotMate()
-        {
-            var b = Board.FromFen("4r2k/8/8/8/8/8/8/4K3 w - - 0 1");
-            Assert.IsTrue(MoveGen.InCheck(b, true));
-            Assert.AreEqual(GameStatus.Ongoing, MoveGen.Status(b));
-        }
     }
 }

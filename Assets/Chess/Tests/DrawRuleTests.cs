@@ -67,6 +67,23 @@ namespace Chess.Tests
                 Board.FromFen("rnbqkbnr/ppp1pppp/8/8/3pP3/8/PPPP1PPP/RNBQKBNR b KQkq - 0 1").Key);
         }
 
+        // ---- insufficient material ----
+        [TestCase("8/8/8/8/8/8/8/K6k w - - 0 1", true)]                       // K v K
+        [TestCase("8/8/8/8/8/8/8/KB5k w - - 0 1", true)]                      // K+B v K
+        [TestCase("8/8/8/8/8/8/8/KN5k w - - 0 1", true)]                      // K+N v K
+        [TestCase("8/8/8/8/8/8/8/K5nk w - - 0 1", true)]                      // K v K+N
+        [TestCase("5b1k/8/8/8/8/8/8/2B1K3 w - - 0 1", true)]                  // bishops on c1 and f8: same colour
+        [TestCase("6bk/8/8/8/8/8/8/2B1K3 w - - 0 1", false)]                  // bishops on c1 and g8: opposite colours
+        [TestCase("7k/8/8/8/8/8/8/KNN5 w - - 0 1", false)]                    // K+N+N v K can still mate
+        [TestCase("7k/8/8/8/8/8/8/KN4n1 w - - 0 1", false)]                   // K+N v K+N
+        [TestCase("7k/8/8/8/8/8/8/KBN5 w - - 0 1", false)]                    // B+N mates
+        [TestCase("7k/8/8/8/8/8/P7/K7 w - - 0 1", false)]                     // a pawn can promote
+        [TestCase("7k/8/8/8/8/8/8/KR6 w - - 0 1", false)]
+        [TestCase("7k/8/8/8/8/8/8/KQ6 w - - 0 1", false)]
+        [TestCase("rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1", false)]
+        public void InsufficientMaterial(string fen, bool expected) =>
+            Assert.AreEqual(expected, Board.FromFen(fen).InsufficientMaterial);
+
         // ---- game-level draws ----
         [Test] public void ThreefoldRepetition_IsADraw()
         {
@@ -91,13 +108,24 @@ namespace Chess.Tests
 
         [Test] public void FiftyMoveRule_DrawsAtHundredHalfmoves()
         {
-            var g = new Game("8/8/8/8/8/8/8/K6k w - - 98 80");
-            Play(g, "a1b1");
+            var g = new Game("7k/8/8/8/8/8/R7/K7 w - - 98 80");
+            Play(g, "a2b2");
             Assert.AreEqual(GameStatus.Ongoing, g.Status);
-            Play(g, "h1g1");
+            Play(g, "h8g8");
             Assert.AreEqual(GameStatus.DrawFiftyMove, g.Status);
         }
 
+
+        [Test] public void Game_ReportsInsufficientMaterial_AsADraw() =>
+            Assert.AreEqual(GameStatus.DrawInsufficientMaterial, new Game("8/8/8/8/8/8/8/KB5k w - - 0 1").Status);
+
+        [Test] public void CapturingTheLastExtraPiece_EndsTheGameAsADraw()
+        {
+            var g = new Game("7k/8/8/8/8/8/1b6/KB6 w - - 0 1");
+            Assert.AreEqual(GameStatus.Ongoing, g.Status);
+            Play(g, "a1b2"); // king takes the bishop that was giving check: K+B v K remains
+            Assert.AreEqual(GameStatus.DrawInsufficientMaterial, g.Status);
+        }
 
         [Test] public void Checkmate_OutranksTheFiftyMoveRule() =>
             Assert.AreEqual(GameStatus.Checkmate, new Game("R5k1/5ppp/8/8/8/8/8/4K3 b - - 100 80").Status);

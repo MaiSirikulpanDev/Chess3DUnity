@@ -107,6 +107,7 @@ namespace Chess.View
                 GameStatus.Stalemate => "Stalemate - draw",
                 GameStatus.DrawRepetition => "Draw - threefold repetition",
                 GameStatus.DrawFiftyMove => "Draw - 50-move rule",
+                GameStatus.DrawInsufficientMaterial => "Draw - insufficient material",
                 _ => b.WhiteToMove ? (check ? "Check! Your move" : "Your move (White)") : "AI is thinking...",
             };
         }

@@ -18,6 +18,7 @@ namespace Chess.Core
             {
                 var status = MoveGen.Status(Board); // mate and stalemate outrank the draw rules
                 if (status != GameStatus.Ongoing) return status;
+                if (Board.InsufficientMaterial) return GameStatus.DrawInsufficientMaterial;
                 if (seen.Count(k => k == Board.Key) >= 3) return GameStatus.DrawRepetition;
                 return Board.HalfmoveClock >= 100 ? GameStatus.DrawFiftyMove : GameStatus.Ongoing;
             }
@@ -38,7 +39,7 @@ namespace Chess.Core
 
         // A move that ends the game in a draw (never a mate: that is a win).
         bool WouldDraw(Board next) =>
-            (next.HalfmoveClock >= 100 || seen.Count(k => k == next.Key) >= 2) && MoveGen.Status(next) == GameStatus.Ongoing;
+            (next.HalfmoveClock >= 100 || next.InsufficientMaterial || seen.Count(k => k == next.Key) >= 2) && MoveGen.Status(next) == GameStatus.Ongoing;
 
         // Plays a move for either side. Callers pass moves taken from MoveGen.Legal.
         public void Play(Move m)

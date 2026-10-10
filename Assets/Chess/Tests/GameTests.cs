@@ -80,6 +80,14 @@ namespace Chess.Tests
             Assert.AreEqual(GameStatus.Ongoing, g.Status);
         }
 
+        [Test] public void AiAhead_DoesNotCaptureIntoAnInsufficientMaterialDraw()
+        {
+            // Bxh2 would win the last pawn but leave K+B v K, a dead draw; the AI is ahead and must decline.
+            var g = new Game("7k/2b5/8/8/8/8/7P/K7 b - - 0 1");
+            Assert.IsTrue(g.AiMove(3));
+            Assert.AreEqual(GameStatus.Ongoing, g.Status);
+        }
+
         [Test] public void AiTakesTheMate_EvenOnTheHundredthHalfmove()
         {
             var g = new Game("r3k3/8/8/8/8/8/5PPP/6K1 b - - 99 80");

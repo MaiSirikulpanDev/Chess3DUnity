@@ -1,4 +1,5 @@
 using System;
+using System.Linq;
 
 namespace Chess.Core
 {
@@ -23,6 +24,24 @@ namespace Chess.Core
         public static bool Owns(bool white, char piece) => white ? char.IsUpper(piece) : char.IsLower(piece);
 
         public static Board Start() => FromFen(StartFen);
+
+        // No sequence of legal moves can mate: bare kings, one minor piece in total, or only bishops that all
+        // stand on one colour of square.
+        public bool InsufficientMaterial
+        {
+            get
+            {
+                var minors = new System.Collections.Generic.List<int>(); // squares holding a knight or bishop
+                for (int sq = 0; sq < 64; sq++)
+                {
+                    char kind = char.ToLower(Squares[sq]);
+                    if (kind == 'n' || kind == 'b') minors.Add(sq);
+                    else if (kind != 'k' && Squares[sq] != Empty) return false;
+                }
+                return minors.Count <= 1 ||
+                    (minors.All(sq => char.ToLower(Squares[sq]) == 'b') && minors.Select(sq => (sq % 8 + sq / 8) % 2).Distinct().Count() == 1);
+            }
+        }
 
         // Identifies a position for repetition: pieces, side to move, castling rights, and the en passant
         // square only when a pawn could actually capture there. The clock is deliberately left out.

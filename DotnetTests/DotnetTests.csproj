@@ -1,0 +1,17 @@
+<!-- Runs the same Chess.Core sources and tests as Unity's EditMode runner, without the editor: `dotnet test DotnetTests` -->
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <!-- Unity 6 compiles C# 9; keep the fast loop from accepting newer syntax -->
+    <LangVersion>9.0</LangVersion>
+    <ImplicitUsings>disable</ImplicitUsings>
+    <IsPackable>false</IsPackable>
+  </PropertyGroup>
+  <ItemGroup>
+    <Compile Include="..\Assets\Chess\Core\**\*.cs" />
+    <Compile Include="..\Assets\Chess\Tests\**\*.cs" />
+    <PackageReference Include="Microsoft.NET.Test.Sdk" Version="17.12.0" />
+    <PackageReference Include="NUnit" Version="3.14.0" />
+    <PackageReference Include="NUnit3TestAdapter" Version="4.6.0" />
+  </ItemGroup>
+</Project>

@@ -120,6 +120,78 @@ namespace Chess.Tests
             Assert.AreEqual(GameStatus.Checkmate, g.Status);
         }
 
+        static string Fen(Board b) => new string(b.Squares) + b.WhiteToMove + b.Castling + b.EnPassant;
+
+        [Test] public void Undo_AfterTheAiReplied_TakesBackBothMoves()
+        {
+            var g = new Game();
+            g.TryMove(Sq("e2"), Sq("e4"));
+            g.AiMove(2);
+            Assert.IsTrue(g.CanUndo);
+            Assert.IsTrue(g.Undo());
+            Assert.AreEqual(Fen(new Game().Board), Fen(g.Board));
+            Assert.IsTrue(g.HumanTurn);
+            Assert.IsFalse(g.CanUndo);
+        }
+
+        [Test] public void Undo_BeforeTheAiReplied_TakesBackOnlyTheHumanMove()
+        {
+            var g = new Game();
+            g.TryMove(Sq("e2"), Sq("e4"));
+            Assert.IsTrue(g.Undo());
+            Assert.AreEqual('P', g.Board["e2"]);
+            Assert.IsTrue(g.HumanTurn);
+        }
+
+        [Test] public void Undo_TwiceGoesBackTwoRounds()
+        {
+            var g = new Game();
+            g.TryMove(Sq("e2"), Sq("e4")); g.AiMove(2);
+            var afterFirstRound = Fen(g.Board);
+            g.TryMove(Sq("d2"), Sq("d4")); g.AiMove(2);
+            g.Undo();
+            Assert.AreEqual(afterFirstRound, Fen(g.Board));
+            g.Undo();
+            Assert.AreEqual(Fen(new Game().Board), Fen(g.Board));
+        }
+
+        [Test] public void Undo_WithNothingToTakeBack_ReturnsFalse()
+        {
+            var g = new Game();
+            Assert.IsFalse(g.CanUndo);
+            Assert.IsFalse(g.Undo());
+        }
+
+        [Test] public void Undo_BringsBackAPromotedPawn()
+        {
+            var g = new Game("7k/P7/8/8/8/8/8/K7 w - - 0 1");
+            g.TryMove(Sq("a7"), Sq("a8"), 'q');
+            g.Undo();
+            Assert.AreEqual('P', g.Board["a7"]);
+            Assert.AreEqual(Board.Empty, g.Board["a8"]);
+        }
+
+        [Test] public void Undo_ForgetsTheTakenBackPositions_ForRepetition()
+        {
+            var g = new Game();
+            foreach (var uci in new[] { "g1f3", "g8f6", "f3g1", "f6g8", "g1f3", "g8f6", "f3g1", "f6g8" })
+                g.Play(MoveGen.Legal(g.Board).Single(m => m.ToString() == uci));
+            Assert.AreEqual(GameStatus.DrawRepetition, g.Status);
+            g.Undo();
+            Assert.AreEqual(GameStatus.Ongoing, g.Status);
+            // Replaying the same move must not count the positions that were taken back.
+            g.Play(MoveGen.Legal(g.Board).Single(m => m.ToString() == "f3g1"));
+            Assert.AreEqual(GameStatus.Ongoing, g.Status);
+        }
+
+        [Test] public void Restart_ClearsTheUndoHistory()
+        {
+            var g = new Game();
+            g.TryMove(Sq("e2"), Sq("e4"));
+            g.Restart();
+            Assert.IsFalse(g.CanUndo);
+        }
+
         [Test] public void Restart_ReturnsToTheStartingPosition()
         {
             var g = new Game();

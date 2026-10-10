@@ -8,9 +8,11 @@ namespace Chess.Core
     {
         readonly string startFen;
         readonly List<string> seen = new List<string>(); // Board.Key of every position reached, for repetition
+        readonly List<Board> history = new List<Board>(); // every earlier position, for undo
 
         public Board Board { get; private set; }
         public bool HumanTurn => Board.WhiteToMove;
+        public bool CanUndo => history.Count > 0;
 
         public GameStatus Status
         {
@@ -30,7 +32,22 @@ namespace Chess.Core
         {
             Board = Board.FromFen(startFen);
             seen.Clear();
+            history.Clear();
             seen.Add(Board.Key);
+        }
+
+        // Goes back to the start of the human's previous turn: takes back the AI's reply if it has moved,
+        // then the human's own move.
+        public bool Undo()
+        {
+            if (!CanUndo) return false;
+            do
+            {
+                Board = history[history.Count - 1];
+                history.RemoveAt(history.Count - 1);
+                seen.RemoveAt(seen.Count - 1);
+            } while (!HumanTurn && CanUndo);
+            return true;
         }
 
         public IEnumerable<int> TargetsFrom(int from) => !HumanTurn
@@ -44,6 +61,7 @@ namespace Chess.Core
         // Plays a move for either side. Callers pass moves taken from MoveGen.Legal.
         public void Play(Move m)
         {
+            history.Add(Board);
             Board = Board.Apply(m);
             seen.Add(Board.Key);
         }

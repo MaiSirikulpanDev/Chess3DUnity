@@ -30,6 +30,7 @@ namespace Chess.View
         float aiTimer = -1;
         Text statusText;
         GameObject picker; // the Queen / Rook / Bishop / Knight choice shown when a pawn reaches the last rank
+        Button undoButton;
         Font font;
 
         public string StatusText => statusText.text;
@@ -71,6 +72,16 @@ namespace Chess.View
         {
             game = new Game(fen);
             NewGame();
+        }
+
+        // Takes back the AI reply (if it has moved) and the player's last move.
+        public void Undo()
+        {
+            aiTimer = -1;
+            picker.SetActive(false);
+            selected = -1;
+            game.Undo();
+            Refresh();
         }
 
         public void NewGame()
@@ -133,6 +144,7 @@ namespace Chess.View
         {
             SyncPieces();
             ShowMarks();
+            undoButton.interactable = game.CanUndo;
             var b = game.Board;
             bool check = MoveGen.InCheck(b, b.WhiteToMove);
             statusText.text = game.Status switch
@@ -228,6 +240,7 @@ namespace Chess.View
             Place(textGo, new Vector2(0.5f, 1), new Vector2(0, -20), new Vector2(900, 50));
 
             MakeButton(canvasGo.transform, "New Game", new Vector2(1, 1), new Vector2(-110, -40), new Vector2(180, 50), NewGame);
+            undoButton = MakeButton(canvasGo.transform, "Undo", new Vector2(1, 1), new Vector2(-110, -100), new Vector2(180, 50), Undo);
 
             picker = new GameObject("Promotion", typeof(Image));
             picker.transform.SetParent(canvasGo.transform, false);
@@ -244,12 +257,13 @@ namespace Chess.View
                 new GameObject("EventSystem", typeof(EventSystem), typeof(InputSystemUIInputModule));
         }
 
-        void MakeButton(Transform parent, string label, Vector2 anchor, Vector2 pos, Vector2 size, UnityAction onClick)
+        Button MakeButton(Transform parent, string label, Vector2 anchor, Vector2 pos, Vector2 size, UnityAction onClick)
         {
             var go = new GameObject(label, typeof(Image), typeof(Button));
             go.transform.SetParent(parent, false);
             go.GetComponent<Image>().color = new Color(0.15f, 0.15f, 0.2f, 0.9f);
-            go.GetComponent<Button>().onClick.AddListener(onClick);
+            var button = go.GetComponent<Button>();
+            button.onClick.AddListener(onClick);
             Place(go, anchor, pos, size);
 
             var text = new GameObject("Label", typeof(Text));
@@ -257,6 +271,7 @@ namespace Chess.View
             var t = text.GetComponent<Text>();
             t.font = font; t.fontSize = 26; t.color = Color.white; t.alignment = TextAnchor.MiddleCenter; t.text = label;
             Place(text, new Vector2(0.5f, 0.5f), Vector2.zero, size);
+            return button;
         }
 
         static void Place(GameObject go, Vector2 anchor, Vector2 pos, Vector2 size)

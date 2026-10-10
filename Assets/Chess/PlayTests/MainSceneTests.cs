@@ -110,6 +110,33 @@ namespace Chess.PlayTests
         }
 
         [UnityTest]
+        public IEnumerator Undo_TakesBackTheMoveAndTheAiReply()
+        {
+            view.Click(Sq("e2"));
+            view.Click(Sq("e4"));
+            yield return new WaitForSeconds(1.5f);
+            yield return Shot("6_before_undo");
+
+            view.Undo();
+            yield return new WaitForSeconds(1f); // let the pieces slide back
+            Assert.AreEqual("Your move (White)", view.StatusText);
+            Assert.AreEqual(32, view.transform.childCount);
+            var pawn = view.transform.Find("P e2");
+            Assert.AreEqual(0.75f, pawn.position.x, 0.01f, "the e-pawn is back on e2");
+            Assert.AreEqual(-3.75f, pawn.position.z, 0.01f);
+            yield return Shot("7_after_undo");
+        }
+
+        [UnityTest]
+        public IEnumerator Undo_WithNothingToTakeBack_ChangesNothing()
+        {
+            view.Undo();
+            yield return null;
+            Assert.AreEqual("Your move (White)", view.StatusText);
+            Assert.AreEqual(32, view.transform.childCount);
+        }
+
+        [UnityTest]
         public IEnumerator NewGame_RestoresTheStartingPosition()
         {
             view.Click(Sq("e2")); view.Click(Sq("e4"));

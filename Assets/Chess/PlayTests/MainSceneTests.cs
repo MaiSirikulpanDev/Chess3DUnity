@@ -1,5 +1,6 @@
 using System.Collections;
 using System.IO;
+using System.Linq;
 using Chess.Core;
 using Chess.View;
 using NUnit.Framework;
@@ -174,6 +175,56 @@ namespace Chess.PlayTests
                 var onScreen = Camera.main.WorldToScreenPoint(view.SquarePos(sq) + Vector3.up * 0.068f);
                 Assert.AreEqual(sq, view.SquareAt(onScreen), Board.Name(sq));
             }
+        }
+
+        [UnityTest]
+        public IEnumerator Sounds_AreSilentAtStart_ThenTapForMoves_AndThudForCaptures()
+        {
+            Assert.AreEqual("", view.LastSound, "setting up the board is silent");
+            Assert.Greater(Peak(view.MoveClip), 0.1f);
+            Assert.Greater(Peak(view.CaptureClip), 0.1f);
+            Assert.Greater(view.CaptureClip.length, view.MoveClip.length, "a capture rings longer than a plain move");
+
+            view.Click(Sq("e2"));
+            view.Click(Sq("e4"));
+            Assert.AreEqual("move", view.LastSound);
+            Assert.AreEqual(0, view.BurstsStarted, "nothing was taken");
+            yield return null;
+        }
+
+        [UnityTest]
+        public IEnumerator Capturing_PlaysTheThud_AndThrowsDebris()
+        {
+            view.StartFrom("7k/8/8/3p4/4P3/8/8/K7 w - - 0 1");
+            yield return null;
+            view.Click(Sq("e4"));
+            view.Click(Sq("d5"));
+            Assert.AreEqual("capture", view.LastSound);
+            Assert.AreEqual(1, view.BurstsStarted);
+            yield return new WaitForSeconds(0.25f);
+            Assert.IsNotNull(GameObject.Find("Debris"), "the pieces of the captured pawn are in the air");
+            yield return Shot("11_capture_burst");
+            yield return new WaitForSeconds(1f);
+            Assert.IsNull(GameObject.Find("Debris"), "and they clean themselves up");
+        }
+
+        [UnityTest]
+        public IEnumerator PromotionWithoutCapture_IsNotACapture()
+        {
+            view.StartFrom("7k/P7/8/8/8/8/8/K7 w - - 0 1");
+            yield return null;
+            view.Click(Sq("a7"));
+            view.Click(Sq("a8"));
+            view.Promote('q');
+            Assert.AreEqual("move", view.LastSound);
+            Assert.AreEqual(0, view.BurstsStarted);
+        }
+
+        static float Peak(AudioClip clip)
+        {
+            var data = new float[clip.samples];
+            clip.GetData(data, 0);
+            return data.Max(Mathf.Abs);
         }
 
         [UnityTest]

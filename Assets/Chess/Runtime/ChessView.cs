@@ -1,3 +1,4 @@
+using System.Collections;
 using System.Collections.Generic;
 using System.Linq;
 using Chess.Core;
@@ -35,15 +36,23 @@ namespace Chess.View
         int level = 1;
         Vector3 cameraOffset; // where the camera starts, relative to the board centre
         float yaw, targetYaw;
+        AudioSource speaker;
         Font font;
 
         public string StatusText => statusText.text;
         public bool PromotionPending => picker != null && picker.activeSelf;
         public string LevelName => Levels[level].name;
+        public string LastSound { get; private set; } = ""; // "move" or "capture"; empty until the first one
+        public int BurstsStarted { get; private set; }
+        public AudioClip MoveClip { get; private set; }
+        public AudioClip CaptureClip { get; private set; }
 
         void Start()
         {
             cameraOffset = Camera.main.transform.position;
+            speaker = gameObject.AddComponent<AudioSource>();
+            MoveClip = Thump("move", 180, 0.09f, 0.5f, 45, 0.5f);
+            CaptureClip = Thump("capture", 90, 0.28f, 0.6f, 14, 0.9f);
             BuildUi();
             NewGame();
         }
@@ -210,8 +219,74 @@ namespace Chess.View
                 if (i >= 0) { pieces[sq] = vacated[i].go; vacated.RemoveAt(i); }
                 else pieces[sq] = Spawn(board[sq], sq);
             }
+            // The very first fill of an empty board (new game, restart) is silent.
+            int before = shown.Count(c => c != Board.Empty), after = board.Count(c => c != Board.Empty);
+            if (before > 0 && !shown.SequenceEqual(board))
+            {
+                bool capture = after < before; // a promotion keeps the count, so it is not a capture
+                Play(capture ? "capture" : "move");
+                if (capture) foreach (var v in vacated) StartCoroutine(Burst(v.go.transform.position, char.IsUpper(v.piece) ? new Color(0.9f, 0.9f, 0.95f) : new Color(0.15f, 0.15f, 0.18f)));
+            }
             foreach (var v in vacated) Destroy(v.go);
             System.Array.Copy(board, shown, 64);
+        }
+
+        void Play(string sound)
+        {
+            LastSound = sound;
+            speaker.PlayOneShot(sound == "capture" ? CaptureClip : MoveClip);
+        }
+
+        // A short percussive hit made in code (no audio files in the project): a sine mixed with noise that decays.
+        static AudioClip Thump(string name, float frequency, float seconds, float noise, float decay, float volume)
+        {
+            const int rate = 44100;
+            var samples = new float[(int)(rate * seconds)];
+            var rng = new System.Random(7);
+            for (int i = 0; i < samples.Length; i++)
+            {
+                float t = (float)i / rate;
+                float tone = Mathf.Sin(2 * Mathf.PI * frequency * t), hiss = (float)(rng.NextDouble() * 2 - 1);
+                samples[i] = ((1 - noise) * tone + noise * hiss) * Mathf.Exp(-decay * t) * volume;
+            }
+            var clip = AudioClip.Create(name, samples.Length, 1, rate, false);
+            clip.SetData(samples, 0);
+            return clip;
+        }
+
+        // Little cubes fly up from a captured piece, fall and shrink, then remove themselves.
+        IEnumerator Burst(Vector3 origin, Color colour)
+        {
+            BurstsStarted++;
+            const int count = 20;
+            const float life = 0.8f, size = 0.32f;
+            var parent = new GameObject("Debris").transform;
+            var bits = new Transform[count];
+            var velocity = new Vector3[count];
+            var block = new MaterialPropertyBlock();
+            block.SetColor("_BaseColor", colour);
+            for (int i = 0; i < count; i++)
+            {
+                var bit = GameObject.CreatePrimitive(PrimitiveType.Cube);
+                Destroy(bit.GetComponent<Collider>());
+                bit.GetComponent<Renderer>().sharedMaterial = highlight;
+                bit.GetComponent<Renderer>().SetPropertyBlock(block);
+                bit.transform.SetParent(parent, false);
+                bit.transform.position = origin + Vector3.up * (FieldY + 0.6f);
+                bits[i] = bit.transform;
+                velocity[i] = Random.insideUnitSphere * 3.5f + Vector3.up * 4f;
+            }
+            for (float t = 0; t < life; t += Time.deltaTime)
+            {
+                for (int i = 0; i < count; i++)
+                {
+                    velocity[i] += Vector3.down * 14f * Time.deltaTime;
+                    bits[i].position += velocity[i] * Time.deltaTime;
+                    bits[i].localScale = Vector3.one * size * (1 - t / life);
+                }
+                yield return null;
+            }
+            Destroy(parent.gameObject);
         }
 
         GameObject Spawn(char piece, int sq)

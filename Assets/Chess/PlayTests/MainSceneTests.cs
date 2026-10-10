@@ -39,17 +39,23 @@ namespace Chess.PlayTests
         static int Sq(string s) => Board.Sq(s);
 
         [TearDown]
-        public void ForgetTheLevel() => PlayerPrefs.DeleteKey(ChessView.LevelKey);
+        public void ForgetTheChoices()
+        {
+            PlayerPrefs.DeleteKey(ChessView.LevelKey);
+            PlayerPrefs.DeleteKey(ChessView.WhiteKey);
+        }
 
         [UnitySetUp]
         public IEnumerator Load()
         {
-            PlayerPrefs.DeleteKey(ChessView.LevelKey); // each test starts from the default level
+            PlayerPrefs.DeleteKey(ChessView.LevelKey); // each test starts from the defaults: Normal, playing White
+            PlayerPrefs.DeleteKey(ChessView.WhiteKey);
             SceneManager.LoadScene("Main");
             yield return null;
             yield return null;
             view = Object.FindFirstObjectByType<ChessView>();
             Assert.IsNotNull(view, "ChessView missing from Main.unity");
+            view.Play(); // the scene opens on the start menu; most tests want a game in progress
         }
 
         [UnityTest]
@@ -192,6 +198,76 @@ namespace Chess.PlayTests
             view.RotateView(90);
             yield return new WaitForSeconds(1.5f);
             AssertEverySquareIsClickable();
+        }
+
+        // ---- start menu ----
+        static IEnumerator FreshScene(System.Action<ChessView> got)
+        {
+            SceneManager.LoadScene("Main");
+            yield return null;
+            yield return null;
+            got(Object.FindFirstObjectByType<ChessView>());
+        }
+
+        [UnityTest]
+        public IEnumerator TheGameOpensOnTheStartMenu_WhichBlocksTheBoard()
+        {
+            ChessView v = null;
+            yield return FreshScene(x => v = x);
+            Assert.IsTrue(v.MenuOpen);
+            Assert.IsFalse(v.OnSetupScreen, "the title screen comes first");
+            v.Click(Sq("e2"));
+            Assert.AreEqual(0, v.MarkCount, "clicks on the board do nothing behind the menu");
+            yield return Shot("20_start_menu");
+        }
+
+        [UnityTest]
+        public IEnumerator StartGame_OpensSetup_AndPlayUsesTheChosenLevelAndColour()
+        {
+            ChessView v = null;
+            yield return FreshScene(x => v = x);
+            v.StartGame();
+            Assert.IsTrue(v.OnSetupScreen);
+            v.PickLevel(2);
+            v.PickColour(false);
+            yield return Shot("21_setup_screen");
+
+            v.Play();
+            Assert.IsFalse(v.MenuOpen);
+            Assert.AreEqual("Hard", v.LevelName);
+            Assert.IsFalse(v.HumanIsWhite);
+            yield return new WaitForSeconds(3f); // White (the AI) opens
+            Assert.AreEqual("Your move (Black)", v.StatusText);
+            StringAssert.StartsWith("1. ", v.MoveListText);
+            Assert.Greater(Camera.main.transform.position.z, 5f, "the camera looks from Black's side");
+            yield return Shot("22_playing_black");
+        }
+
+        [UnityTest]
+        public IEnumerator ExitGame_AsksTheApplicationToQuit()
+        {
+            bool quit = false;
+            view.quitAction = () => quit = true;
+            view.ExitGame();
+            Assert.IsTrue(quit);
+            yield return null;
+        }
+
+        [UnityTest]
+        public IEnumerator MenuButton_GoesBackToTheTitle_AndTheChoicesAreRemembered()
+        {
+            view.OpenMenu();
+            Assert.IsTrue(view.MenuOpen);
+            view.StartGame();
+            view.PickLevel(0);
+            view.PickColour(false);
+            view.Play();
+
+            ChessView v = null;
+            yield return FreshScene(x => v = x);
+            v.StartGame();
+            Assert.AreEqual(0, v.MenuLevel, "Easy was chosen last time");
+            Assert.IsFalse(v.MenuPlaysWhite);
         }
 
         // ---- the forest around the board ----

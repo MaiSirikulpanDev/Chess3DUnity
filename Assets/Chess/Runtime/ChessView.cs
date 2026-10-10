@@ -23,7 +23,7 @@ namespace Chess.View
 
         const float FieldY = 0.068f; // surface of the playing squares on the board model
         const string Order = "KQBNRP";
-        public const string LevelKey = "chess.level";
+        public const string LevelKey = "chess.level", WhiteKey = "chess.white";
 
         Game game = new Game();
         readonly GameObject[] pieces = new GameObject[64];
@@ -36,6 +36,10 @@ namespace Chess.View
         Button undoButton, levelButton;
         Transform marksRoot; // keeps highlight slabs out of the pieces' parent
         Text moveListText;
+        StartMenu menu;
+        GameObject hud;
+        bool humanWhite = true;
+        public System.Action quitAction = QuitApplication; // replaced by tests
         int level = 1;
         float cameraDistance; // from the middle of the board, kept while orbiting
         float yaw, targetYaw, pitch, targetPitch;
@@ -45,6 +49,11 @@ namespace Chess.View
         public string StatusText => statusText.text;
         public bool PromotionPending => picker != null && picker.activeSelf;
         public string LevelName => Levels[level].name;
+        public bool MenuOpen => menu.IsOpen;
+        public bool OnSetupScreen => menu.OnSetup;
+        public int MenuLevel => menu.Level;
+        public bool MenuPlaysWhite => menu.PlaysWhite;
+        public bool HumanIsWhite => game.HumanIsWhite;
         public int MarkCount => marks.Count;
         public string MoveListText => moveListText.text;
         public string LastSound { get; private set; } = ""; // "move" or "capture"; empty until the first one
@@ -55,6 +64,7 @@ namespace Chess.View
         void Start()
         {
             level = Mathf.Clamp(PlayerPrefs.GetInt(LevelKey, level), 0, Levels.Length - 1);
+            humanWhite = PlayerPrefs.GetInt(WhiteKey, 1) == 1;
             marksRoot = new GameObject("Marks").transform;
             var start = Camera.main.transform.position - new Vector3(0, FieldY, 0);
             cameraDistance = start.magnitude;
@@ -64,6 +74,7 @@ namespace Chess.View
             CaptureClip = Thump("capture", 90, 0.28f, 0.6f, 14, 0.9f);
             BuildUi();
             NewGame();
+            OpenMenu();
         }
 
         void Update()
@@ -103,13 +114,14 @@ namespace Chess.View
         // lower, so the underside of the board is never in view, and up to almost straight above.
         void OrbitCamera()
         {
-            var keys = Keyboard.current;
+            if (menu.IsOpen) targetYaw += 8f * Time.deltaTime; // the board turns slowly behind the menu
+            var keys = menu.IsOpen ? null : Keyboard.current;
             if (keys != null)
             {
                 targetYaw += ((keys.dKey.isPressed || keys.rightArrowKey.isPressed ? 1 : 0) - (keys.aKey.isPressed || keys.leftArrowKey.isPressed ? 1 : 0)) * 90f * Time.deltaTime;
                 TiltView(((keys.wKey.isPressed || keys.upArrowKey.isPressed ? 1 : 0) - (keys.sKey.isPressed || keys.downArrowKey.isPressed ? 1 : 0)) * 60f * Time.deltaTime);
             }
-            if (Mouse.current != null && Mouse.current.rightButton.isPressed)
+            if (!menu.IsOpen && Mouse.current != null && Mouse.current.rightButton.isPressed)
             {
                 var drag = Mouse.current.delta.ReadValue();
                 targetYaw += drag.x * 0.3f;
@@ -131,10 +143,55 @@ namespace Chess.View
         // Degrees above the horizon: 0 is level with the board, 85 almost straight down.
         public void TiltView(float degrees) => targetPitch = Mathf.Clamp(targetPitch + degrees, 0, 85);
 
+        // ---- start menu: Start Game -> setup (level, colour) -> Play ----
+        public void StartGame() => menu.ShowSetup();
+        public void PickLevel(int index) => menu.PickLevel(index);
+        public void PickColour(bool white) => menu.PickColour(white);
+
+        public void OpenMenu()
+        {
+            hud.SetActive(false);
+            picker.SetActive(false);
+            menu.ShowTitle();
+        }
+
+        // Begins a game with the level and colour picked on the setup screen, and remembers them for next time.
+        public void Play()
+        {
+            level = menu.Level;
+            humanWhite = menu.PlaysWhite;
+            PlayerPrefs.SetInt(LevelKey, level);
+            PlayerPrefs.SetInt(WhiteKey, humanWhite ? 1 : 0);
+            PlayerPrefs.Save();
+            ShowLevel();
+            menu.Hide();
+            hud.SetActive(true);
+            game = new Game(Board.StartFen, humanWhite);
+            yaw = targetYaw = humanWhite ? 0 : 180; // sit on your own side of the board
+            NewGame();
+        }
+
+        public void ExitGame() => quitAction();
+
+        static void QuitApplication()
+        {
+#if UNITY_EDITOR
+            UnityEditor.EditorApplication.isPlaying = false;
+#else
+            Application.Quit();
+#endif
+        }
+
+        // When you play Black the AI has the first move; after an Undo it can be back on the move too.
+        void AiToMoveIfItsTurn()
+        {
+            if (!game.HumanTurn && game.Status == GameStatus.Ongoing) aiTimer = 0.6f;
+        }
+
         // Starts a game from an arbitrary position (used by tests).
         public void StartFrom(string fen)
         {
-            game = new Game(fen);
+            game = new Game(fen, humanWhite);
             NewGame();
         }
 
@@ -146,6 +203,7 @@ namespace Chess.View
             selected = -1;
             game.Undo();
             Refresh();
+            AiToMoveIfItsTurn();
         }
 
         public void CycleLevel()
@@ -153,7 +211,7 @@ namespace Chess.View
             level = (level + 1) % Levels.Length;
             PlayerPrefs.SetInt(LevelKey, level);
             PlayerPrefs.Save();
-            levelButton.GetComponentInChildren<Text>().text = "Level: " + LevelName;
+            ShowLevel();
         }
 
         public void NewGame()
@@ -165,11 +223,12 @@ namespace Chess.View
             for (int sq = 0; sq < 64; sq++) { Destroy(pieces[sq]); pieces[sq] = null; shown[sq] = Board.Empty; }
             Refresh();
             SnapAll();
+            AiToMoveIfItsTurn();
         }
 
         public void Click(int sq)
         {
-            if (game.Status != GameStatus.Ongoing || !game.HumanTurn) return;
+            if (menu.IsOpen || game.Status != GameStatus.Ongoing || !game.HumanTurn) return;
             if (PromotionPending) // clicking the board instead of a piece cancels the choice
             {
                 picker.SetActive(false);
@@ -222,12 +281,12 @@ namespace Chess.View
             bool check = MoveGen.InCheck(b, b.WhiteToMove);
             statusText.text = game.Status switch
             {
-                GameStatus.Checkmate => b.WhiteToMove ? "Checkmate - Black (AI) wins" : "Checkmate - You win!",
+                GameStatus.Checkmate => game.HumanTurn ? "Checkmate - AI wins" : "Checkmate - You win!",
                 GameStatus.Stalemate => "Stalemate - draw",
                 GameStatus.DrawRepetition => "Draw - threefold repetition",
                 GameStatus.DrawFiftyMove => "Draw - 50-move rule",
                 GameStatus.DrawInsufficientMaterial => "Draw - insufficient material",
-                _ => (check ? "Check! " : "") + (b.WhiteToMove ? (check ? "Your move" : "Your move (White)") : "AI is thinking..."),
+                _ => (check ? "Check! " : "") + (game.HumanTurn ? (check ? "Your move" : "Your move (" + (game.HumanIsWhite ? "White" : "Black") + ")") : "AI is thinking..."),
             };
         }
 
@@ -390,68 +449,43 @@ namespace Chess.View
             var scaler = canvasGo.GetComponent<CanvasScaler>();
             scaler.uiScaleMode = CanvasScaler.ScaleMode.ScaleWithScreenSize;
             scaler.referenceResolution = new Vector2(1280, 720);
-
             font = Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
-            var textGo = new GameObject("Status", typeof(Text));
-            textGo.transform.SetParent(canvasGo.transform, false);
-            statusText = textGo.GetComponent<Text>();
-            statusText.font = font; statusText.fontSize = 32; statusText.color = Color.white;
-            statusText.alignment = TextAnchor.UpperCenter;
-            textGo.AddComponent<Outline>().effectColor = new Color(0, 0, 0, 0.8f); // stays readable over grass and sky
-            Place(textGo, new Vector2(0.5f, 1), new Vector2(0, -20), new Vector2(900, 50));
 
-            MakeButton(canvasGo.transform, "New Game", new Vector2(1, 1), new Vector2(-110, -40), new Vector2(180, 50), NewGame);
-            undoButton = MakeButton(canvasGo.transform, "Undo", new Vector2(1, 1), new Vector2(-110, -100), new Vector2(180, 50), Undo);
-            levelButton = MakeButton(canvasGo.transform, "", new Vector2(1, 1), new Vector2(-110, -160), new Vector2(180, 50), CycleLevel);
-            levelButton.GetComponentInChildren<Text>().text = "Level: " + LevelName;
-            MakeButton(canvasGo.transform, "Flip View", new Vector2(1, 1), new Vector2(-110, -220), new Vector2(180, 50), () => RotateView(180));
+            // Everything shown while a game is on; hidden behind the start menu.
+            hud = new GameObject("HUD", typeof(RectTransform));
+            hud.transform.SetParent(canvasGo.transform, false);
+            var hudRect = hud.GetComponent<RectTransform>();
+            hudRect.anchorMin = Vector2.zero; hudRect.anchorMax = Vector2.one; hudRect.offsetMin = hudRect.offsetMax = Vector2.zero;
 
-            var listGo = new GameObject("Moves", typeof(Text));
-            listGo.transform.SetParent(canvasGo.transform, false);
-            moveListText = listGo.GetComponent<Text>();
-            moveListText.font = font; moveListText.fontSize = 24; moveListText.color = new Color(1, 1, 1, 0.9f);
-            moveListText.alignment = TextAnchor.UpperLeft;
-            listGo.AddComponent<Outline>().effectColor = new Color(0, 0, 0, 0.8f);
-            Place(listGo, new Vector2(0, 1), new Vector2(20, -90), new Vector2(230, 420));
+            var top = new Vector2(0.5f, 1);
+            statusText = UiKit.Label(hud.transform, font, "", 32, top, new Vector2(0, -20), new Vector2(900, 50), TextAnchor.UpperCenter);
+            moveListText = UiKit.Label(hud.transform, font, "", 24, new Vector2(0, 1), new Vector2(20, -90), new Vector2(230, 420), TextAnchor.UpperLeft);
+
+            var corner = new Vector2(1, 1);
+            UiKit.Button(hud.transform, font, "New Game", corner, new Vector2(-110, -40), new Vector2(180, 50), NewGame);
+            undoButton = UiKit.Button(hud.transform, font, "Undo", corner, new Vector2(-110, -100), new Vector2(180, 50), Undo);
+            levelButton = UiKit.Button(hud.transform, font, "Level", corner, new Vector2(-110, -160), new Vector2(180, 50), CycleLevel);
+            UiKit.Button(hud.transform, font, "Flip View", corner, new Vector2(-110, -220), new Vector2(180, 50), () => RotateView(180));
+            UiKit.Button(hud.transform, font, "Menu", corner, new Vector2(-110, -280), new Vector2(180, 50), OpenMenu);
+            ShowLevel();
 
             picker = new GameObject("Promotion", typeof(Image));
             picker.transform.SetParent(canvasGo.transform, false);
             picker.GetComponent<Image>().color = new Color(0, 0, 0, 0.6f);
-            Place(picker, new Vector2(0.5f, 0.5f), Vector2.zero, new Vector2(700, 90));
+            UiKit.Place(picker, new Vector2(0.5f, 0.5f), Vector2.zero, new Vector2(700, 90));
             string[] names = { "Queen", "Rook", "Bishop", "Knight" };
             for (int i = 0; i < 4; i++)
             {
                 char piece = "qrbn"[i];
-                MakeButton(picker.transform, names[i], new Vector2(0.5f, 0.5f), new Vector2(-255 + i * 170, 0), new Vector2(160, 60), () => Promote(piece));
+                UiKit.Button(picker.transform, font, names[i], new Vector2(0.5f, 0.5f), new Vector2(-255 + i * 170, 0), new Vector2(160, 60), () => Promote(piece));
             }
+
+            menu = new StartMenu(canvasGo.transform, font, Levels.Select(l => l.name).ToArray(), level, humanWhite, StartGame, Play, ExitGame);
 
             if (FindFirstObjectByType<EventSystem>() == null)
                 new GameObject("EventSystem", typeof(EventSystem), typeof(InputSystemUIInputModule));
         }
 
-        Button MakeButton(Transform parent, string label, Vector2 anchor, Vector2 pos, Vector2 size, UnityAction onClick)
-        {
-            var go = new GameObject(label, typeof(Image), typeof(Button));
-            go.transform.SetParent(parent, false);
-            go.GetComponent<Image>().color = new Color(0.15f, 0.15f, 0.2f, 0.9f);
-            var button = go.GetComponent<Button>();
-            button.onClick.AddListener(onClick);
-            Place(go, anchor, pos, size);
-
-            var text = new GameObject("Label", typeof(Text));
-            text.transform.SetParent(go.transform, false);
-            var t = text.GetComponent<Text>();
-            t.font = font; t.fontSize = 26; t.color = Color.white; t.alignment = TextAnchor.MiddleCenter; t.text = label;
-            Place(text, new Vector2(0.5f, 0.5f), Vector2.zero, size);
-            return button;
-        }
-
-        static void Place(GameObject go, Vector2 anchor, Vector2 pos, Vector2 size)
-        {
-            var rt = go.GetComponent<RectTransform>();
-            rt.anchorMin = rt.anchorMax = rt.pivot = anchor;
-            rt.anchoredPosition = pos;
-            rt.sizeDelta = size;
-        }
+        void ShowLevel() => levelButton.GetComponentInChildren<Text>().text = "Level: " + LevelName;
     }
 }

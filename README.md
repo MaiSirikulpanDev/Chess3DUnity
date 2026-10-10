@@ -14,7 +14,7 @@ A single-player 3D chess game. Play White against a built-in AI. Built with Unit
 
 ## Play
 
-1. Do the local setup above, then run **Chess > Build Scene** (or open `Assets/Scenes/Main.unity`).
+1. Do the local setup above, then run **Chess > Build Scene** (or open `Assets/Scenes/Main.unity`). The game opens on a title screen: **Start Game** leads to a setup screen where you pick the difficulty and the colour you play; **Exit Game** quits. The **Menu** button in the game returns to the title screen.
 2. Press Play. You are White: click a piece, then a highlighted square (green = move, red = capture). The AI answers as Black.
 3. Turn the camera with A/D or left/right arrows and tilt it with W/S or up/down arrows (or right-mouse drag); the lowest it goes is level with the board. **Flip View** swings it to the other side. **Level** cycles Easy/Normal/Hard (remembered between runs). The last move is ringed in orange, a king in check in red, and the moves are listed at the top left. **Undo** takes back your last move and the AI reply; **New Game** (top right) restarts. A pawn reaching the last rank asks which piece to become.
 

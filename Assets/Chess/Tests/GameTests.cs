@@ -56,6 +56,37 @@ namespace Chess.Tests
             Assert.AreEqual('Q', g.Board["a8"]);
         }
 
+        [TestCase('q', 'Q')] [TestCase('r', 'R')] [TestCase('b', 'B')] [TestCase('n', 'N')]
+        public void TryMove_Promotion_UsesTheChosenPiece(char choice, char expected)
+        {
+            var g = new Game("7k/P7/8/8/8/8/8/K7 w - - 0 1");
+            Assert.IsTrue(g.TryMove(Sq("a7"), Sq("a8"), choice));
+            Assert.AreEqual(expected, g.Board["a8"]);
+        }
+
+        [Test] public void TryMove_Promotion_RejectsAPieceThatIsNotAnOption()
+        {
+            var g = new Game("7k/P7/8/8/8/8/8/K7 w - - 0 1");
+            Assert.IsFalse(g.TryMove(Sq("a7"), Sq("a8"), 'k'));
+            Assert.AreEqual('P', g.Board["a7"]);
+        }
+
+        [Test] public void IsPromotion_OnlyForAPawnReachingTheLastRank()
+        {
+            var g = new Game("1n5k/P7/8/8/8/8/4P3/K7 w - - 0 1");
+            Assert.IsTrue(g.IsPromotion(Sq("a7"), Sq("a8")));
+            Assert.IsTrue(g.IsPromotion(Sq("a7"), Sq("b8")), "capturing promotion");
+            Assert.IsFalse(g.IsPromotion(Sq("e2"), Sq("e4")));
+            Assert.IsFalse(g.IsPromotion(Sq("a1"), Sq("a2")));
+        }
+
+        [Test] public void TryMove_ChoiceIsIgnoredForOrdinaryMoves()
+        {
+            var g = new Game();
+            Assert.IsTrue(g.TryMove(Sq("e2"), Sq("e4"), 'n'));
+            Assert.AreEqual('P', g.Board["e4"]);
+        }
+
         [Test] public void AiMove_OnlyWhenItIsTheAisTurn()
         {
             var g = new Game();

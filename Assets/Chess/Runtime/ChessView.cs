@@ -5,6 +5,7 @@ using UnityEngine;
 using UnityEngine.EventSystems;
 using UnityEngine.InputSystem;
 using UnityEngine.InputSystem.UI;
+using UnityEngine.Events;
 using UnityEngine.UI;
 
 namespace Chess.View
@@ -21,15 +22,18 @@ namespace Chess.View
         const float FieldY = 0.068f; // surface of the playing squares on the board model
         const string Order = "KQBNRP";
 
-        readonly Game game = new Game();
+        Game game = new Game();
         readonly GameObject[] pieces = new GameObject[64];
         readonly char[] shown = Enumerable.Repeat(Board.Empty, 64).ToArray();
         readonly List<GameObject> marks = new List<GameObject>();
-        int selected = -1;
+        int selected = -1, promotionTo;
         float aiTimer = -1;
         Text statusText;
+        GameObject picker; // the Queen / Rook / Bishop / Knight choice shown when a pawn reaches the last rank
+        Font font;
 
         public string StatusText => statusText.text;
+        public bool PromotionPending => picker != null && picker.activeSelf;
 
         void Start()
         {
@@ -62,11 +66,19 @@ namespace Chess.View
             }
         }
 
+        // Starts a game from an arbitrary position (used by tests).
+        public void StartFrom(string fen)
+        {
+            game = new Game(fen);
+            NewGame();
+        }
+
         public void NewGame()
         {
             game.Restart();
             selected = -1;
             aiTimer = -1;
+            picker.SetActive(false);
             for (int sq = 0; sq < 64; sq++) { Destroy(pieces[sq]); pieces[sq] = null; shown[sq] = Board.Empty; }
             Refresh();
             SnapAll();
@@ -75,15 +87,37 @@ namespace Chess.View
         public void Click(int sq)
         {
             if (game.Status != GameStatus.Ongoing || !game.HumanTurn) return;
-            if (selected >= 0 && game.TryMove(selected, sq))
+            if (PromotionPending) // clicking the board instead of a piece cancels the choice
             {
+                picker.SetActive(false);
                 selected = -1;
                 Refresh();
-                if (game.Status == GameStatus.Ongoing) aiTimer = 0.4f;
                 return;
             }
+            if (selected >= 0 && game.IsPromotion(selected, sq))
+            {
+                promotionTo = sq;
+                picker.SetActive(true);
+                statusText.text = "Promote to...";
+                return;
+            }
+            if (selected >= 0 && game.TryMove(selected, sq)) { Moved(); return; }
             selected = game.TargetsFrom(sq).Any() ? sq : -1;
             Refresh();
+        }
+
+        // `piece` is q, r, b or n.
+        public void Promote(char piece)
+        {
+            picker.SetActive(false);
+            if (selected >= 0 && game.TryMove(selected, promotionTo, piece)) Moved();
+        }
+
+        void Moved()
+        {
+            selected = -1;
+            Refresh();
+            if (game.Status == GameStatus.Ongoing) aiTimer = 0.4f;
         }
 
         // Jump every piece to its square at once, skipping the slide animation.
@@ -177,12 +211,15 @@ namespace Chess.View
         void BuildUi()
         {
             var canvasGo = new GameObject("UI", typeof(Canvas), typeof(CanvasScaler), typeof(GraphicRaycaster));
-            canvasGo.GetComponent<Canvas>().renderMode = RenderMode.ScreenSpaceOverlay;
+            var canvas = canvasGo.GetComponent<Canvas>();
+            canvas.renderMode = RenderMode.ScreenSpaceCamera; // not Overlay, so camera renders (screenshots) include the UI
+            canvas.worldCamera = Camera.main;
+            canvas.planeDistance = 1;
             var scaler = canvasGo.GetComponent<CanvasScaler>();
             scaler.uiScaleMode = CanvasScaler.ScaleMode.ScaleWithScreenSize;
             scaler.referenceResolution = new Vector2(1280, 720);
 
-            var font = Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
+            font = Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
             var textGo = new GameObject("Status", typeof(Text));
             textGo.transform.SetParent(canvasGo.transform, false);
             statusText = textGo.GetComponent<Text>();
@@ -190,19 +227,36 @@ namespace Chess.View
             statusText.alignment = TextAnchor.UpperCenter;
             Place(textGo, new Vector2(0.5f, 1), new Vector2(0, -20), new Vector2(900, 50));
 
-            var buttonGo = new GameObject("New Game", typeof(Image), typeof(Button));
-            buttonGo.transform.SetParent(canvasGo.transform, false);
-            buttonGo.GetComponent<Image>().color = new Color(0.15f, 0.15f, 0.2f, 0.9f);
-            buttonGo.GetComponent<Button>().onClick.AddListener(NewGame);
-            Place(buttonGo, new Vector2(1, 1), new Vector2(-110, -40), new Vector2(180, 50));
-            var label = new GameObject("Label", typeof(Text));
-            label.transform.SetParent(buttonGo.transform, false);
-            var t = label.GetComponent<Text>();
-            t.font = font; t.fontSize = 26; t.color = Color.white; t.alignment = TextAnchor.MiddleCenter; t.text = "New Game";
-            Place(label, new Vector2(0.5f, 0.5f), Vector2.zero, new Vector2(180, 50));
+            MakeButton(canvasGo.transform, "New Game", new Vector2(1, 1), new Vector2(-110, -40), new Vector2(180, 50), NewGame);
+
+            picker = new GameObject("Promotion", typeof(Image));
+            picker.transform.SetParent(canvasGo.transform, false);
+            picker.GetComponent<Image>().color = new Color(0, 0, 0, 0.6f);
+            Place(picker, new Vector2(0.5f, 0.5f), Vector2.zero, new Vector2(700, 90));
+            string[] names = { "Queen", "Rook", "Bishop", "Knight" };
+            for (int i = 0; i < 4; i++)
+            {
+                char piece = "qrbn"[i];
+                MakeButton(picker.transform, names[i], new Vector2(0.5f, 0.5f), new Vector2(-255 + i * 170, 0), new Vector2(160, 60), () => Promote(piece));
+            }
 
             if (FindFirstObjectByType<EventSystem>() == null)
                 new GameObject("EventSystem", typeof(EventSystem), typeof(InputSystemUIInputModule));
+        }
+
+        void MakeButton(Transform parent, string label, Vector2 anchor, Vector2 pos, Vector2 size, UnityAction onClick)
+        {
+            var go = new GameObject(label, typeof(Image), typeof(Button));
+            go.transform.SetParent(parent, false);
+            go.GetComponent<Image>().color = new Color(0.15f, 0.15f, 0.2f, 0.9f);
+            go.GetComponent<Button>().onClick.AddListener(onClick);
+            Place(go, anchor, pos, size);
+
+            var text = new GameObject("Label", typeof(Text));
+            text.transform.SetParent(go.transform, false);
+            var t = text.GetComponent<Text>();
+            t.font = font; t.fontSize = 26; t.color = Color.white; t.alignment = TextAnchor.MiddleCenter; t.text = label;
+            Place(text, new Vector2(0.5f, 0.5f), Vector2.zero, size);
         }
 
         static void Place(GameObject go, Vector2 anchor, Vector2 pos, Vector2 size)

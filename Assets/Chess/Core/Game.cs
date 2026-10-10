@@ -48,12 +48,15 @@ namespace Chess.Core
             seen.Add(Board.Key);
         }
 
-        // Promotion is always to a queen.
-        public bool TryMove(int from, int to)
+        public bool IsPromotion(int from, int to) =>
+            HumanTurn && MoveGen.Legal(Board).Any(m => m.From == from && m.To == to && m.Promo != '\0');
+
+        // `promo` (q, r, b or n) only matters when the move is a promotion.
+        public bool TryMove(int from, int to, char promo = 'q')
         {
             if (!HumanTurn) return false;
             foreach (var m in MoveGen.Legal(Board))
-                if (m.From == from && m.To == to && (m.Promo == '\0' || m.Promo == 'q'))
+                if (m.From == from && m.To == to && (m.Promo == '\0' || m.Promo == promo))
                 {
                     Play(m);
                     return true;

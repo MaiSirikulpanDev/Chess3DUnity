@@ -31,7 +31,7 @@ public static class SetupScene
 
         var cam = Camera.main;
         cam.transform.SetPositionAndRotation(new Vector3(0, 14, -12), Quaternion.Euler(50, 0, 0));
-        cam.fieldOfView = 40;
+        cam.fieldOfView = 46;
         cam.clearFlags = CameraClearFlags.SolidColor;
         cam.backgroundColor = new Color(0.12f, 0.14f, 0.18f);
 

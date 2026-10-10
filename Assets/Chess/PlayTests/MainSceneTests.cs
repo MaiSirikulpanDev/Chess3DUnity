@@ -78,6 +78,38 @@ namespace Chess.PlayTests
         }
 
         [UnityTest]
+        public IEnumerator Promotion_AsksForAPiece_ThenPlacesIt()
+        {
+            view.StartFrom("7k/P7/8/8/8/8/8/K7 w - - 0 1");
+            yield return null;
+            view.Click(Sq("a7"));
+            view.Click(Sq("a8"));
+            Assert.IsTrue(view.PromotionPending);
+            Assert.IsNotNull(view.transform.Find("P a7"), "the pawn waits on a7 until a piece is chosen");
+            yield return Shot("4_promotion_picker");
+
+            view.Promote('n');
+            Assert.IsFalse(view.PromotionPending);
+            yield return null;
+            Assert.IsNotNull(view.transform.Find("N a8"));
+            yield return Shot("5_promoted_knight");
+        }
+
+        [UnityTest]
+        public IEnumerator Promotion_ClickingTheBoard_CancelsTheChoice()
+        {
+            view.StartFrom("7k/P7/8/8/8/8/8/K7 w - - 0 1");
+            yield return null;
+            view.Click(Sq("a7"));
+            view.Click(Sq("a8"));
+            view.Click(Sq("e4"));
+            yield return null;
+            Assert.IsFalse(view.PromotionPending);
+            Assert.AreEqual("Your move (White)", view.StatusText);
+            Assert.IsNotNull(view.transform.Find("P a7"));
+        }
+
+        [UnityTest]
         public IEnumerator NewGame_RestoresTheStartingPosition()
         {
             view.Click(Sq("e2")); view.Click(Sq("e4"));

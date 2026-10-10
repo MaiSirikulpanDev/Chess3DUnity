@@ -11,3 +11,11 @@ A single-player 3D chess game. Play White against a built-in AI. Built with Unit
 ## Tests
 
 `dotnet test DotnetTests` (fast) or Unity Test Runner, EditMode.
+
+## Play
+
+1. Do the local setup above, then run **Chess > Build Scene** (or open `Assets/Scenes/Main.unity`).
+2. Press Play. You are White: click a piece, then a highlighted square (green = move, red = capture). The AI answers as Black.
+3. **New Game** (top right) restarts. Pawns promote to a queen automatically.
+
+PlayMode tests (`Assets/Chess/PlayTests`) load the scene, click through a move and save screenshots to `Logs/shots/`.

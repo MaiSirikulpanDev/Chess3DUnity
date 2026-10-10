@@ -1,0 +1,4 @@
+{
+    "name": "Chess.Runtime",
+    "references": ["Chess.Core", "Unity.InputSystem", "UnityEngine.UI"]
+}

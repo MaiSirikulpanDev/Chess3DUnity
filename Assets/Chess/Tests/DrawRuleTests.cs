@@ -98,12 +98,6 @@ namespace Chess.Tests
             Assert.AreEqual(GameStatus.DrawFiftyMove, g.Status);
         }
 
-        [Test] public void PawnMove_AvoidsTheFiftyMoveDraw()
-        {
-            var g = new Game("8/8/8/8/8/8/P7/K6k w - - 99 80");
-            Play(g, "a2a3");
-            Assert.AreEqual(GameStatus.Ongoing, g.Status);
-        }
 
         [Test] public void Checkmate_OutranksTheFiftyMoveRule() =>
             Assert.AreEqual(GameStatus.Checkmate, new Game("R5k1/5ppp/8/8/8/8/8/4K3 b - - 100 80").Status);

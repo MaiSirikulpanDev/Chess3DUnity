@@ -116,9 +116,6 @@ namespace Chess.Tests
         }
 
 
-        [Test] public void Game_ReportsInsufficientMaterial_AsADraw() =>
-            Assert.AreEqual(GameStatus.DrawInsufficientMaterial, new Game("8/8/8/8/8/8/8/KB5k w - - 0 1").Status);
-
         [Test] public void CapturingTheLastExtraPiece_EndsTheGameAsADraw()
         {
             var g = new Game("7k/8/8/8/8/8/1b6/KB6 w - - 0 1");

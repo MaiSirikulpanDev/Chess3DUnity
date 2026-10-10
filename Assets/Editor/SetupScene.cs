@@ -13,7 +13,7 @@ public static class SetupScene
 
     // The board's underside is at y = -0.277 (see ChessView.FieldY); the stump's top goes exactly there.
     const float BoardBottom = -0.277f;
-    const float StumpHeightScale = 7f, StumpWidthScale = 34f;
+    const float StumpScale = 34f; // the same on every axis, so the stump keeps its natural shape
     // Where the stump mesh's flat top sits in its own model space (measured from its vertices).
     static readonly Vector2 StumpTopCentre = new Vector2(-0.078f, -0.1245f);
     const float StumpTopY = 0.6239f, StumpBottomY = -0.2922f;
@@ -45,6 +45,7 @@ public static class SetupScene
         cam.fieldOfView = 46;
         cam.clearFlags = CameraClearFlags.SolidColor;
         cam.backgroundColor = mist;
+        cam.farClipPlane = 1500;
 
         BuildForest(mist);
 
@@ -59,17 +60,17 @@ public static class SetupScene
         float Rand(float low, float high) => low + (float)rng.NextDouble() * (high - low);
         var root = new GameObject("Forest").transform;
 
-        // Stump: scaled wide and squat, shifted so its flat top is centred under the board.
-        float groundY = BoardBottom - (StumpTopY - StumpBottomY) * StumpHeightScale;
-        var stump = Put(root, "Trees/PT_Fruit_Tree_01_stump", new Vector3(-StumpTopCentre.x * StumpWidthScale, BoardBottom - StumpTopY * StumpHeightScale, -StumpTopCentre.y * StumpWidthScale),
-            0, new Vector3(StumpWidthScale, StumpHeightScale, StumpWidthScale), "Stump");
+        // Stump: a tall natural stump, shifted so its flat top is centred under the board.
+        float groundY = BoardBottom - (StumpTopY - StumpBottomY) * StumpScale;
+        var stump = Put(root, "Trees/PT_Fruit_Tree_01_stump", new Vector3(-StumpTopCentre.x * StumpScale, BoardBottom - StumpTopY * StumpScale, -StumpTopCentre.y * StumpScale),
+            0, Vector3.one * StumpScale, "Stump");
         stump.transform.SetParent(null); // the stump stands on its own in the hierarchy
 
         var ground = GameObject.CreatePrimitive(PrimitiveType.Plane);
         ground.name = "Ground";
         Object.DestroyImmediate(ground.GetComponent<Collider>());
-        ground.transform.position = new Vector3(0, groundY + 0.3f, 0); // the roots sink slightly into the soil
-        ground.transform.localScale = Vector3.one * 80;
+        ground.transform.position = new Vector3(0, groundY + 1f, 0); // the roots sink slightly into the soil
+        ground.transform.localScale = Vector3.one * 150;
         ground.GetComponent<Renderer>().sharedMaterial = GroundMaterial();
 
         Vector3 Ring(float inner, float outer)
@@ -77,26 +78,27 @@ public static class SetupScene
             float angle = Rand(0, 2 * Mathf.PI), radius = Rand(inner, outer);
             return new Vector3(Mathf.Cos(angle) * radius, groundY, Mathf.Sin(angle) * radius);
         }
-        void Scatter(string path, int count, float inner, float outer, float smallest, float largest)
+        void Scatter(string path, int count, float inner, float outer, float smallest, float largest, bool castShadows = true)
         {
-            for (int i = 0; i < count; i++) Put(root, path, Ring(inner, outer), Rand(0, 360), Vector3.one * Rand(smallest, largest));
+            for (int i = 0; i < count; i++) Put(root, path, Ring(inner, outer), Rand(0, 360), Vector3.one * Rand(smallest, largest), null, castShadows);
         }
 
-        // Trees: mostly pines, a few broadleaf and dead ones. Nothing closer than 40 units.
-        Scatter("Trees/PT_Pine_Tree_03_green", 55, 40, 130, 4.5f, 6.5f);
-        Scatter("Trees/PT_Fruit_Tree_01_green", 14, 40, 110, 4f, 5.5f);
-        Scatter("Trees/PT_Pine_Tree_03_dead", 8, 45, 120, 4.5f, 6f);
-        Scatter("Trees/PT_Fruit_Tree_01_dead", 4, 50, 100, 4f, 5f);
-        // Undergrowth around the stump, scaled up to match the stump's size.
-        Scatter("Shrubs/PT_Generic_Shrub_01_green", 14, 24, 55, 4f, 6.5f);
-        Scatter("Shrubs/PT_Generic_Shrub_01_dead", 4, 30, 60, 4f, 6f);
-        Scatter("Rocks/PT_Generic_Rock_01", 10, 23, 50, 14f, 26f);
-        Scatter("Rocks/PT_River_Rock_Pile_02", 5, 24, 45, 6f, 10f);
-        Scatter("Rocks/PT_Menhir_Rock_02", 2, 55, 75, 4f, 5f);
-        Scatter("Mushrooms/PT_Caesars_Mushroom_01", 12, 30, 48, 6f, 10f);
-        Scatter("Plants/PT_Grass_02", 80, 22, 65, 5f, 8f);
-        Scatter("Flowers/PT_Poppy_02", 40, 22, 55, 6f, 10f);
-        for (int i = 0; i < 2; i++) Put(root, "Trees/PT_Pine_Tree_03_logs", Ring(32, 42), Rand(0, 360), Vector3.one * Rand(5f, 6f), "Logs");
+        // The world is built to the stump's scale (a giant stump, giant trees): the board is a tabletop on it.
+        // Trees: mostly pines, a few broadleaf and dead ones, all well outside the camera's orbit.
+        Scatter("Trees/PT_Pine_Tree_03_green", 90, 90, 400, 22f, 32f, false);
+        Scatter("Trees/PT_Fruit_Tree_01_green", 22, 90, 380, 20f, 28f, false);
+        Scatter("Trees/PT_Pine_Tree_03_dead", 12, 100, 380, 22f, 30f, false);
+        Scatter("Trees/PT_Fruit_Tree_01_dead", 6, 100, 350, 20f, 26f, false);
+        // Undergrowth around the foot of the stump.
+        Scatter("Shrubs/PT_Generic_Shrub_01_green", 16, 26, 120, 8f, 13f);
+        Scatter("Shrubs/PT_Generic_Shrub_01_dead", 5, 30, 140, 8f, 12f);
+        Scatter("Rocks/PT_Generic_Rock_01", 12, 24, 110, 50f, 90f);
+        Scatter("Rocks/PT_River_Rock_Pile_02", 6, 26, 100, 30f, 50f);
+        Scatter("Rocks/PT_Menhir_Rock_02", 2, 150, 250, 20f, 25f, false);
+        Scatter("Mushrooms/PT_Caesars_Mushroom_01", 12, 45, 110, 22f, 32f);
+        Scatter("Plants/PT_Grass_02", 100, 24, 180, 12f, 18f);
+        Scatter("Flowers/PT_Poppy_02", 50, 24, 150, 14f, 22f);
+        for (int i = 0; i < 2; i++) Put(root, "Trees/PT_Pine_Tree_03_logs", Ring(70, 110), Rand(0, 360), Vector3.one * Rand(24f, 30f), "Logs");
 
         var sun = Object.FindFirstObjectByType<Light>();
         sun.color = new Color(1f, 0.95f, 0.82f);
@@ -106,13 +108,13 @@ public static class SetupScene
 
         RenderSettings.fog = true;
         RenderSettings.fogMode = FogMode.Exponential;
-        RenderSettings.fogDensity = 0.007f;
+        RenderSettings.fogDensity = 0.0018f;
         RenderSettings.fogColor = mist;
         RenderSettings.ambientMode = AmbientMode.Flat;
         RenderSettings.ambientLight = new Color(0.45f, 0.5f, 0.45f);
     }
 
-    static GameObject Put(Transform parent, string path, Vector3 position, float yaw, Vector3 scale, string name = null)
+    static GameObject Put(Transform parent, string path, Vector3 position, float yaw, Vector3 scale, string name = null, bool castShadows = true)
     {
         var asset = AssetDatabase.LoadAssetAtPath<GameObject>(Env + "Prefabs/" + path + ".prefab");
         if (asset == null) throw new System.IO.FileNotFoundException("Missing prefab " + path + ": import the Polytope Studio pack and its URP 17 package");
@@ -120,6 +122,8 @@ public static class SetupScene
         go.transform.SetPositionAndRotation(position, Quaternion.Euler(0, yaw, 0));
         go.transform.localScale = scale;
         if (name != null) go.name = name;
+        if (!castShadows)
+            foreach (var r in go.GetComponentsInChildren<Renderer>()) r.shadowCastingMode = ShadowCastingMode.Off;
         return go;
     }
 
@@ -134,7 +138,7 @@ public static class SetupScene
         }
         var grass = AssetDatabase.LoadAssetAtPath<Texture2D>(Env + "Sources/Textures/PT_Ground_Grass_Green_01.png");
         mat.SetTexture("_BaseMap", grass);
-        mat.SetTextureScale("_BaseMap", new Vector2(70, 70));
+        mat.SetTextureScale("_BaseMap", new Vector2(100, 100));
         mat.SetColor("_BaseColor", new Color(0.75f, 0.85f, 0.7f));
         mat.SetFloat("_Smoothness", 0);
         EditorUtility.SetDirty(mat);

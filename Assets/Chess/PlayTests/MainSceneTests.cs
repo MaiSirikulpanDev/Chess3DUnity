@@ -290,8 +290,26 @@ namespace Chess.PlayTests
             Assert.IsNotNull(forest);
             var trees = forest.GetComponentsInChildren<Transform>().Where(t => t.name.StartsWith("PT_Pine_Tree") || t.name.StartsWith("PT_Fruit_Tree")).ToList();
             Assert.Greater(trees.Count, 40, "a forest, not a few trees");
-            Assert.IsTrue(trees.All(t => new Vector2(t.position.x, t.position.z).magnitude > 30f), "none close enough for the camera to pass through");
+            Assert.IsTrue(trees.All(t => new Vector2(t.position.x, t.position.z).magnitude > 80f), "far enough that even a wide canopy stays clear of the camera orbit and the board");
             Assert.IsTrue(RenderSettings.fog, "mist thins the far trees");
+        }
+
+        [Test]
+        public void TheStump_IsNotSquashed_ItKeepsItsModelsProportions()
+        {
+            var bounds = GameObject.Find("Stump").GetComponentInChildren<Renderer>().bounds;
+            float ratio = bounds.size.y / bounds.size.x; // the model is about 0.74 tall for its width
+            Assert.That(ratio, Is.InRange(0.6f, 0.95f), "a natural stump, not a flattened plinth");
+        }
+
+        [Test]
+        public void TheTrees_AreAsBigAsTheStumpTheyWouldHaveGrownFrom()
+        {
+            var stump = GameObject.Find("Stump").GetComponentInChildren<Renderer>().bounds;
+            var tree = GameObject.Find("Forest").GetComponentsInChildren<Transform>()
+                .First(t => t.name.StartsWith("PT_Pine_Tree_03_green")).GetComponentInChildren<Renderer>().bounds;
+            Assert.Greater(tree.size.y, stump.size.y * 4, "pines tower over the stump");
+            Assert.Greater(tree.size.x, stump.size.x, "and their branches spread wider than its base");
         }
 
         [Test]

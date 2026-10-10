@@ -17,6 +17,10 @@ namespace Chess.Core
 
         public static int Sq(string square) => (square[1] - '1') * 8 + (square[0] - 'a');
 
+        public static string Name(int sq) => "" + (char)('a' + sq % 8) + (char)('1' + sq / 8);
+
+        public static bool Owns(bool white, char piece) => white ? char.IsUpper(piece) : char.IsLower(piece);
+
         public static Board Start() => FromFen(StartFen);
 
         public static Board FromFen(string fen)

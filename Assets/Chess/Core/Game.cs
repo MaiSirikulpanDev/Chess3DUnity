@@ -4,7 +4,7 @@ using System.Linq;
 
 namespace Chess.Core
 {
-    // One game: the human plays White, the AI plays Black.
+    // One game: the human plays one colour (White unless told otherwise), the AI the other.
     public class Game
     {
         readonly string startFen;
@@ -12,7 +12,8 @@ namespace Chess.Core
         readonly List<(Board before, Move move, string san)> history = new List<(Board before, Move move, string san)>();
 
         public Board Board { get; private set; }
-        public bool HumanTurn => Board.WhiteToMove;
+        public bool HumanIsWhite { get; }
+        public bool HumanTurn => Board.WhiteToMove == HumanIsWhite;
         public bool CanUndo => history.Count > 0;
         public Move? LastMove => history.Count > 0 ? history[history.Count - 1].move : (Move?)null;
 
@@ -28,7 +29,7 @@ namespace Chess.Core
             }
         }
 
-        public Game(string fen = Board.StartFen) { startFen = fen; Restart(); }
+        public Game(string fen = Board.StartFen, bool humanIsWhite = true) { startFen = fen; HumanIsWhite = humanIsWhite; Restart(); }
 
         public void Restart()
         {

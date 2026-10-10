@@ -228,6 +228,50 @@ namespace Chess.Tests
             Assert.AreEqual("", g.MoveListText());
         }
 
+        // ---- playing Black ----
+        [Test] public void HumanBlack_TheAiMovesFirst()
+        {
+            var g = new Game(Board.StartFen, humanIsWhite: false);
+            Assert.IsFalse(g.HumanTurn);
+            Assert.IsFalse(g.TryMove(Sq("e7"), Sq("e5")), "not the human's turn yet");
+            Assert.IsTrue(g.AiMove(2));
+            Assert.IsTrue(g.HumanTurn);
+            Assert.IsFalse(g.Board.WhiteToMove, "Black to move");
+        }
+
+        [Test] public void HumanBlack_CanMoveTheBlackPieces_NotTheWhiteOnes()
+        {
+            var g = new Game(Board.StartFen, humanIsWhite: false);
+            g.AiMove(2);
+            Assert.AreEqual("e6 e5", string.Join(" ", g.TargetsFrom(Sq("e7")).Select(Board.Name)));
+            Assert.AreEqual("", string.Join(" ", g.TargetsFrom(Sq("e2")).Select(Board.Name)));
+            Assert.IsTrue(g.TryMove(Sq("e7"), Sq("e5")));
+            Assert.AreEqual('p', g.Board["e5"]);
+            Assert.IsFalse(g.HumanTurn);
+        }
+
+        [Test] public void HumanBlack_PromotesToTheChosenPiece()
+        {
+            var g = new Game("8/8/8/8/8/8/p6k/4K3 b - - 0 1", humanIsWhite: false);
+            Assert.IsTrue(g.IsPromotion(Sq("a2"), Sq("a1")));
+            Assert.IsTrue(g.TryMove(Sq("a2"), Sq("a1"), 'n'));
+            Assert.AreEqual('n', g.Board["a1"]);
+        }
+
+        [Test] public void HumanBlack_UndoReturnsToBeforeTheirOwnMove()
+        {
+            var g = new Game(Board.StartFen, humanIsWhite: false);
+            g.AiMove(2);
+            var beforeMyMove = Fen(g.Board);
+            g.TryMove(Sq("e7"), Sq("e5"));
+            g.AiMove(2);
+            g.Undo();
+            Assert.AreEqual(beforeMyMove, Fen(g.Board));
+            Assert.IsTrue(g.HumanTurn);
+        }
+
+        [Test] public void HumanWhite_IsStillTheDefault() => Assert.IsTrue(new Game().HumanTurn);
+
         [Test] public void Restart_ClearsTheUndoHistory()
         {
             var g = new Game();

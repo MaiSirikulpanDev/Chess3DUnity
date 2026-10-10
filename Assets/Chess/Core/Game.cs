@@ -77,9 +77,9 @@ namespace Chess.Core
             return false;
         }
 
-        public bool AiMove(int depth = 4)
+        public bool AiMove(int depth = 4, int tolerance = 0)
         {
-            if (HumanTurn || Ai.Best(Board, depth, WouldDraw) is not Move m) return false;
+            if (HumanTurn || Ai.Best(Board, depth, WouldDraw, tolerance) is not Move m) return false;
             Play(m);
             return true;
         }

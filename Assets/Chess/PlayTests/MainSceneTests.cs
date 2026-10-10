@@ -128,6 +128,22 @@ namespace Chess.PlayTests
         }
 
         [UnityTest]
+        public IEnumerator LevelButton_CyclesEasyNormalHard_AndTheAiStillAnswers()
+        {
+            Assert.AreEqual("Normal", view.LevelName);
+            view.CycleLevel();
+            Assert.AreEqual("Hard", view.LevelName);
+            view.CycleLevel();
+            Assert.AreEqual("Easy", view.LevelName);
+
+            view.Click(Sq("e2"));
+            view.Click(Sq("e4"));
+            yield return new WaitForSeconds(1.5f);
+            Assert.AreEqual("Your move (White)", view.StatusText, "the Easy AI replied");
+            yield return Shot("8_level_easy");
+        }
+
+        [UnityTest]
         public IEnumerator Undo_WithNothingToTakeBack_ChangesNothing()
         {
             view.Undo();

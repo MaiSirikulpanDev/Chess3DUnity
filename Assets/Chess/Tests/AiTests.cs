@@ -16,8 +16,8 @@ namespace Chess.Tests
 
         [Test] public void PrefersTheQuickerMate()
         {
-            // Mate in 1 exists; a slower mate must not be chosen even though both win.
-            Assert.AreEqual("a1a8", Best("6k1/5ppp/8/8/8/8/1R6/R3K3 w - - 0 1"));
+            // Both rooks mate in one (a1a8, b2b8); a slower mate must not be chosen even though it also wins.
+            CollectionAssert.Contains(new[] { "a1a8", "b2b8" }, Best("6k1/5ppp/8/8/8/8/1R6/R3K3 w - - 0 1"));
         }
 
         [Test] public void DoesNotLeaveTheQueenEnPrise()
@@ -50,6 +50,31 @@ namespace Chess.Tests
             var best = Ai.Best(b, 3).Value;
             var drawing = MoveGen.Legal(b).First(m => m.ToString() != best.ToString());
             Assert.AreEqual(drawing.ToString(), Ai.Best(b, 3, Flag(b, drawing)).Value.ToString());
+        }
+
+        // ---- variety and strength levels ----
+        static System.Collections.Generic.HashSet<string> Picks(string fen, int depth, int tolerance, int tries = 60)
+        {
+            var rng = new Random(1);
+            var b = Board.FromFen(fen);
+            return Enumerable.Range(0, tries).Select(_ => Ai.Best(b, depth, null, tolerance, rng).ToString()).ToHashSet();
+        }
+
+        [Test] public void EqualBestMoves_ArePickedAtRandom() =>
+            // Depth 1 from the start: e4, d4 and the two knight jumps to the centre score identically.
+            CollectionAssert.AreEquivalent(new[] { "e2e4", "d2d4", "b1c3", "g1f3" }, Picks(Board.StartFen, 1, 0));
+
+        [Test] public void Tolerance_WidensTheChoice() =>
+            Assert.Greater(Picks(Board.StartFen, 1, 1000).Count, 4);
+
+        [Test] public void AMate_IsAlwaysTaken_WhateverTheTolerance() =>
+            CollectionAssert.AreEquivalent(new[] { "a1a8" }, Picks("6k1/5ppp/8/8/8/8/8/R3K3 w - - 0 1", 3, 50));
+
+        [Test] public void ShallowSearch_FallsForAPoisonedPawn_DeeperSearchDoesNot()
+        {
+            const string fen = "7k/8/4p3/3p4/8/8/8/K2Q4 w - - 0 1"; // Qxd5 loses the queen to exd5
+            CollectionAssert.AreEquivalent(new[] { "d1d5" }, Picks(fen, 1, 0));
+            CollectionAssert.DoesNotContain(Picks(fen, 3, 0), "d1d5");
         }
 
         [Test] public void PlaysOnlyLegalMoves_ThroughAWholeGame()

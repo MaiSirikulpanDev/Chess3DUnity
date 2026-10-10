@@ -7,19 +7,24 @@ namespace Chess.Core
     public static class Ai
     {
         const int Mate = 100000;
+        static readonly Random Rng = new Random();
 
         // `isDraw` flags moves that would end the game in a draw; those score 0 instead of their search value.
-        public static Move? Best(Board b, int depth, Func<Board, bool> isDraw = null)
+        // Any move scoring within `tolerance` of the best may be played, picked at random: 0 means exact ties only.
+        public static Move? Best(Board b, int depth, Func<Board, bool> isDraw = null, int tolerance = 0, Random rng = null)
         {
-            Move? best = null;
-            int alpha = -2 * Mate;
+            var scored = new System.Collections.Generic.List<(Move move, int score)>();
+            int best = -2 * Mate;
             foreach (var m in Ordered(b))
             {
                 var next = b.Apply(m);
-                int score = isDraw?.Invoke(next) == true ? 0 : -Search(next, depth - 1, -2 * Mate, -alpha, 1);
-                if (score > alpha) { alpha = score; best = m; }
+                // The window stays open down to best - tolerance, so every score inside the tolerance is exact.
+                int score = isDraw?.Invoke(next) == true ? 0 : -Search(next, depth - 1, -2 * Mate, -(best - tolerance - 1), 1);
+                best = Math.Max(best, score);
+                scored.Add((m, score));
             }
-            return best;
+            var pool = scored.Where(s => s.score >= best - tolerance).ToList();
+            return pool.Count == 0 ? null : pool[(rng ?? Rng).Next(pool.Count)].move;
         }
 
         static int Search(Board b, int depth, int alpha, int beta, int ply)

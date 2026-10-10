@@ -17,7 +17,8 @@ namespace Chess.View
         public GameObject[] whitePrefabs, blackPrefabs;
         public Material highlight;
         const float squareSize = 1.5f; // 12 units of playing area on the board model / 8
-        const int aiDepth = 4;
+        // Search depth and move-choice tolerance (see Ai.Best): the easier the level, the shallower and looser the AI.
+        static readonly (string name, int depth, int tolerance)[] Levels = { ("Easy", 1, 60), ("Normal", 3, 15), ("Hard", 4, 0) };
 
         const float FieldY = 0.068f; // surface of the playing squares on the board model
         const string Order = "KQBNRP";
@@ -30,11 +31,13 @@ namespace Chess.View
         float aiTimer = -1;
         Text statusText;
         GameObject picker; // the Queen / Rook / Bishop / Knight choice shown when a pawn reaches the last rank
-        Button undoButton;
+        Button undoButton, levelButton;
+        int level = 1;
         Font font;
 
         public string StatusText => statusText.text;
         public bool PromotionPending => picker != null && picker.activeSelf;
+        public string LevelName => Levels[level].name;
 
         void Start()
         {
@@ -50,7 +53,7 @@ namespace Chess.View
 
             if (aiTimer >= 0 && (aiTimer -= Time.deltaTime) < 0)
             {
-                game.AiMove(aiDepth);
+                game.AiMove(Levels[level].depth, Levels[level].tolerance);
                 Refresh();
             }
 
@@ -82,6 +85,12 @@ namespace Chess.View
             selected = -1;
             game.Undo();
             Refresh();
+        }
+
+        public void CycleLevel()
+        {
+            level = (level + 1) % Levels.Length;
+            levelButton.GetComponentInChildren<Text>().text = "Level: " + LevelName;
         }
 
         public void NewGame()
@@ -241,6 +250,8 @@ namespace Chess.View
 
             MakeButton(canvasGo.transform, "New Game", new Vector2(1, 1), new Vector2(-110, -40), new Vector2(180, 50), NewGame);
             undoButton = MakeButton(canvasGo.transform, "Undo", new Vector2(1, 1), new Vector2(-110, -100), new Vector2(180, 50), Undo);
+            levelButton = MakeButton(canvasGo.transform, "", new Vector2(1, 1), new Vector2(-110, -160), new Vector2(180, 50), CycleLevel);
+            levelButton.GetComponentInChildren<Text>().text = "Level: " + LevelName;
 
             picker = new GameObject("Promotion", typeof(Image));
             picker.transform.SetParent(canvasGo.transform, false);

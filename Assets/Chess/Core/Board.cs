@@ -23,6 +23,16 @@ namespace Chess.Core
 
         public static Board Start() => FromFen(StartFen);
 
+        // Returns a new board; the original is left untouched.
+        public Board Apply(Move m)
+        {
+            var b = new Board { WhiteToMove = !WhiteToMove, Castling = Castling };
+            Array.Copy(Squares, b.Squares, 64);
+            b.Squares[m.To] = Squares[m.From];
+            b.Squares[m.From] = Empty;
+            return b;
+        }
+
         public static Board FromFen(string fen)
         {
             var parts = (fen ?? "").Split(' ');

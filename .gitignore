@@ -18,3 +18,5 @@
 # Paid/licensed Asset Store content: import locally from the Asset Store, never commit
 /Assets/Synty/
 /Assets/Synty.meta
+/Assets/BrokenVector/
+/Assets/BrokenVector.meta

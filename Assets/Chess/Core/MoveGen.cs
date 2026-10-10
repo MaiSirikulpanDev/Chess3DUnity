@@ -40,6 +40,45 @@ namespace Chess.Core
             return moves;
         }
 
+
+        public static List<Move> Legal(Board b) =>
+            PseudoLegal(b).Where(m => !InCheck(b.Apply(m), b.WhiteToMove)).ToList();
+
+        public static bool InCheck(Board b, bool white) =>
+            IsAttacked(b, System.Array.IndexOf(b.Squares, white ? 'K' : 'k'), !white);
+
+        // Is `sq` attacked by the given side? Looks outward from the square for each attacker type.
+        public static bool IsAttacked(Board b, int sq, bool byWhite)
+        {
+            char Piece(char white) => byWhite ? white : char.ToLower(white);
+            int f = sq % 8, r = sq / 8;
+
+            int pawnRank = r + (byWhite ? -1 : 1);
+            for (int df = -1; df <= 1; df += 2)
+                if (At(b, f + df, pawnRank) == Piece('P')) return true;
+
+            foreach (var (df, dr) in KnightJumps)
+                if (At(b, f + df, r + dr) == Piece('N')) return true;
+            foreach (var (df, dr) in AllDirs)
+                if (At(b, f + df, r + dr) == Piece('K')) return true;
+
+            return Slides(b, f, r, Orthogonal, Piece('R'), Piece('Q')) || Slides(b, f, r, Diagonal, Piece('B'), Piece('Q'));
+        }
+
+        static char At(Board b, int f, int r) => f < 0 || f > 7 || r < 0 || r > 7 ? '#' : b.Squares[r * 8 + f];
+
+        static bool Slides(Board b, int f, int r, (int f, int r)[] dirs, char a, char c)
+        {
+            foreach (var (df, dr) in dirs)
+                for (int x = f + df, y = r + dr; ; x += df, y += dr)
+                {
+                    char p = At(b, x, y);
+                    if (p == a || p == c) return true;
+                    if (p != Board.Empty) break;
+                }
+            return false;
+        }
+
         static void Walk(Board b, int from, (int f, int r)[] dirs, int maxSteps, List<Move> moves)
         {
             foreach (var (df, dr) in dirs)

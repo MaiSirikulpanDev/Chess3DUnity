@@ -144,18 +144,12 @@ namespace Chess.PlayTests
             yield return Shot("8_level_easy");
         }
 
-        // The mouse maps a screen point to a square through the camera; check every square from the start view.
-        [UnityTest]
-        public IEnumerator ScreenPoints_MapToTheirSquares_FromTheDefaultCamera()
-        {
-            yield return null;
-            AssertEverySquareIsClickable();
-        }
-
         [UnityTest]
         public IEnumerator RotatingTheView_KeepsEverySquareClickable_AndSwingsTheCamera()
         {
+            // The mouse maps a screen point to a square through the camera: check every square before and after turning it.
             Assert.Less(Camera.main.transform.position.z, 0, "White's side to begin with");
+            AssertEverySquareIsClickable();
             view.RotateView(180);
             yield return new WaitForSeconds(1.5f);
             Assert.Greater(Camera.main.transform.position.z, 10f, "now looking from Black's side");

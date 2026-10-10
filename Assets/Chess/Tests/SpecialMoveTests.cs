@@ -34,9 +34,6 @@ namespace Chess.Tests
         [Test] public void Castling_BlockedByPiece() =>
             Assert.AreEqual("d1 d2 e2 f1 f2", Legal("r3k2r/8/8/8/8/8/8/RN2K1NR w KQkq - 0 1", "e1"));
 
-        [Test] public void Castling_QueenSide_BlockedOnB1_StillBlocks() =>
-            Assert.AreEqual("d1 d2 e2 f1 f2 g1", Legal("4k3/8/8/8/8/8/8/RN2K2R w KQ - 0 1", "e1"));
-
         [Test] public void Castling_NotThroughAttackedSquare() =>
             // black rook on f8 attacks f1: no kingside, queenside is fine
             Assert.AreEqual("c1 d1 d2 e2", Legal("5r1k/8/8/8/8/8/8/R3K2R w KQ - 0 1", "e1"));

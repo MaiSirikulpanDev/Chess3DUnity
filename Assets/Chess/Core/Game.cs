@@ -7,8 +7,7 @@ namespace Chess.Core
     public class Game
     {
         readonly string startFen;
-        readonly List<string> seen = new List<string>(); // Board.Key of every position reached, for repetition
-        readonly List<Board> history = new List<Board>(); // every earlier position, for undo
+        readonly List<Board> history = new List<Board>(); // every earlier position: undo, and the repetition count
 
         public Board Board { get; private set; }
         public bool HumanTurn => Board.WhiteToMove;
@@ -21,7 +20,7 @@ namespace Chess.Core
                 var status = MoveGen.Status(Board); // mate and stalemate outrank the draw rules
                 if (status != GameStatus.Ongoing) return status;
                 if (Board.InsufficientMaterial) return GameStatus.DrawInsufficientMaterial;
-                if (seen.Count(k => k == Board.Key) >= 3) return GameStatus.DrawRepetition;
+                if (history.Count(b => b.Key == Board.Key) >= 2) return GameStatus.DrawRepetition;
                 return Board.HalfmoveClock >= 100 ? GameStatus.DrawFiftyMove : GameStatus.Ongoing;
             }
         }
@@ -31,9 +30,7 @@ namespace Chess.Core
         public void Restart()
         {
             Board = Board.FromFen(startFen);
-            seen.Clear();
             history.Clear();
-            seen.Add(Board.Key);
         }
 
         // Goes back to the start of the human's previous turn: takes back the AI's reply if it has moved,
@@ -45,7 +42,6 @@ namespace Chess.Core
             {
                 Board = history[history.Count - 1];
                 history.RemoveAt(history.Count - 1);
-                seen.RemoveAt(seen.Count - 1);
             } while (!HumanTurn && CanUndo);
             return true;
         }
@@ -56,14 +52,13 @@ namespace Chess.Core
 
         // A move that ends the game in a draw (never a mate: that is a win).
         bool WouldDraw(Board next) =>
-            (next.HalfmoveClock >= 100 || next.InsufficientMaterial || seen.Count(k => k == next.Key) >= 2) && MoveGen.Status(next) == GameStatus.Ongoing;
+            (next.HalfmoveClock >= 100 || next.InsufficientMaterial || history.Count(b => b.Key == next.Key) >= 2) && MoveGen.Status(next) == GameStatus.Ongoing;
 
         // Plays a move for either side. Callers pass moves taken from MoveGen.Legal.
         public void Play(Move m)
         {
             history.Add(Board);
             Board = Board.Apply(m);
-            seen.Add(Board.Key);
         }
 
         public bool IsPromotion(int from, int to) =>

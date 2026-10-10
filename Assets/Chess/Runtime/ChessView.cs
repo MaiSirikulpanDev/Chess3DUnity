@@ -23,6 +23,7 @@ namespace Chess.View
 
         const float FieldY = 0.068f; // surface of the playing squares on the board model
         const string Order = "KQBNRP";
+        public const string LevelKey = "chess.level";
 
         Game game = new Game();
         readonly GameObject[] pieces = new GameObject[64];
@@ -33,6 +34,8 @@ namespace Chess.View
         Text statusText;
         GameObject picker; // the Queen / Rook / Bishop / Knight choice shown when a pawn reaches the last rank
         Button undoButton, levelButton;
+        Transform marksRoot; // keeps highlight slabs out of the pieces' parent
+        Text moveListText;
         int level = 1;
         Vector3 cameraOffset; // where the camera starts, relative to the board centre
         float yaw, targetYaw;
@@ -42,6 +45,8 @@ namespace Chess.View
         public string StatusText => statusText.text;
         public bool PromotionPending => picker != null && picker.activeSelf;
         public string LevelName => Levels[level].name;
+        public int MarkCount => marks.Count;
+        public string MoveListText => moveListText.text;
         public string LastSound { get; private set; } = ""; // "move" or "capture"; empty until the first one
         public int BurstsStarted { get; private set; }
         public AudioClip MoveClip { get; private set; }
@@ -49,6 +54,8 @@ namespace Chess.View
 
         void Start()
         {
+            level = Mathf.Clamp(PlayerPrefs.GetInt(LevelKey, level), 0, Levels.Length - 1);
+            marksRoot = new GameObject("Marks").transform;
             cameraOffset = Camera.main.transform.position;
             speaker = gameObject.AddComponent<AudioSource>();
             MoveClip = Thump("move", 180, 0.09f, 0.5f, 45, 0.5f);
@@ -126,6 +133,8 @@ namespace Chess.View
         public void CycleLevel()
         {
             level = (level + 1) % Levels.Length;
+            PlayerPrefs.SetInt(LevelKey, level);
+            PlayerPrefs.Save();
             levelButton.GetComponentInChildren<Text>().text = "Level: " + LevelName;
         }
 
@@ -190,6 +199,7 @@ namespace Chess.View
             SyncPieces();
             ShowMarks();
             undoButton.interactable = game.CanUndo;
+            moveListText.text = game.MoveListText();
             var b = game.Board;
             bool check = MoveGen.InCheck(b, b.WhiteToMove);
             statusText.text = game.Status switch
@@ -199,7 +209,7 @@ namespace Chess.View
                 GameStatus.DrawRepetition => "Draw - threefold repetition",
                 GameStatus.DrawFiftyMove => "Draw - 50-move rule",
                 GameStatus.DrawInsufficientMaterial => "Draw - insufficient material",
-                _ => b.WhiteToMove ? (check ? "Check! Your move" : "Your move (White)") : "AI is thinking...",
+                _ => (check ? "Check! " : "") + (b.WhiteToMove ? (check ? "Your move" : "Your move (White)") : "AI is thinking..."),
             };
         }
 
@@ -307,21 +317,42 @@ namespace Chess.View
         {
             foreach (var m in marks) Destroy(m);
             marks.Clear();
+
+            if (game.LastMove is Move last)
+            {
+                Ring(last.From, new Color(1f, 0.6f, 0.1f), 0.1f);
+                Ring(last.To, new Color(1f, 0.6f, 0.1f), 0.1f);
+            }
+            var b = game.Board;
+            if (MoveGen.InCheck(b, b.WhiteToMove))
+                Ring(System.Array.IndexOf(b.Squares, b.WhiteToMove ? 'K' : 'k'), new Color(0.9f, 0.1f, 0.1f), 0.16f);
+
             if (selected < 0) return;
-            Mark(selected, Color.yellow, 1f);
+            Slab(SquarePos(selected), 1f, 1f, Color.yellow);
             foreach (int to in game.TargetsFrom(selected))
-                if (game.Board.Squares[to] == Board.Empty) Mark(to, Color.green, 0.35f);
-                else Mark(to, Color.red, 1f);
+                if (b.Squares[to] == Board.Empty) Slab(SquarePos(to), 0.35f, 0.35f, Color.green);
+                else Slab(SquarePos(to), 1f, 1f, Color.red);
         }
 
-        // Flat slab on a square; `fraction` is its width as a share of the square.
-        void Mark(int sq, Color colour, float fraction)
+        // A frame round a square: four thin slabs, `thickness` in world units.
+        void Ring(int sq, Color colour, float thickness)
+        {
+            var c = SquarePos(sq);
+            float edge = (squareSize - thickness) / 2, bar = (squareSize - 2 * thickness) / squareSize;
+            Slab(c + new Vector3(0, 0, edge), 1f, thickness / squareSize, colour);
+            Slab(c - new Vector3(0, 0, edge), 1f, thickness / squareSize, colour);
+            Slab(c + new Vector3(edge, 0, 0), thickness / squareSize, bar, colour);
+            Slab(c - new Vector3(edge, 0, 0), thickness / squareSize, bar, colour);
+        }
+
+        // Flat slab centred on `centre`; its width (x) and depth (z) are shares of a square.
+        void Slab(Vector3 centre, float width, float depth, Color colour)
         {
             var m = GameObject.CreatePrimitive(PrimitiveType.Cube);
             Destroy(m.GetComponent<Collider>());
-            m.transform.SetParent(transform, false);
-            m.transform.position = SquarePos(sq) + Vector3.up * (FieldY + 0.01f);
-            m.transform.localScale = new Vector3(squareSize * fraction, 0.02f, squareSize * fraction);
+            m.transform.SetParent(marksRoot, false);
+            m.transform.position = centre + Vector3.up * (FieldY + 0.01f);
+            m.transform.localScale = new Vector3(squareSize * width, 0.02f, squareSize * depth);
             var r = m.GetComponent<Renderer>();
             r.sharedMaterial = highlight;
             var block = new MaterialPropertyBlock();
@@ -355,6 +386,13 @@ namespace Chess.View
             levelButton = MakeButton(canvasGo.transform, "", new Vector2(1, 1), new Vector2(-110, -160), new Vector2(180, 50), CycleLevel);
             levelButton.GetComponentInChildren<Text>().text = "Level: " + LevelName;
             MakeButton(canvasGo.transform, "Flip View", new Vector2(1, 1), new Vector2(-110, -220), new Vector2(180, 50), () => RotateView(180));
+
+            var listGo = new GameObject("Moves", typeof(Text));
+            listGo.transform.SetParent(canvasGo.transform, false);
+            moveListText = listGo.GetComponent<Text>();
+            moveListText.font = font; moveListText.fontSize = 24; moveListText.color = new Color(1, 1, 1, 0.9f);
+            moveListText.alignment = TextAnchor.UpperLeft;
+            Place(listGo, new Vector2(0, 1), new Vector2(20, -90), new Vector2(230, 420));
 
             picker = new GameObject("Promotion", typeof(Image));
             picker.transform.SetParent(canvasGo.transform, false);

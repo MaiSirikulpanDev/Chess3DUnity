@@ -38,9 +38,13 @@ namespace Chess.PlayTests
 
         static int Sq(string s) => Board.Sq(s);
 
+        [TearDown]
+        public void ForgetTheLevel() => PlayerPrefs.DeleteKey(ChessView.LevelKey);
+
         [UnitySetUp]
         public IEnumerator Load()
         {
+            PlayerPrefs.DeleteKey(ChessView.LevelKey); // each test starts from the default level
             SceneManager.LoadScene("Main");
             yield return null;
             yield return null;
@@ -219,6 +223,62 @@ namespace Chess.PlayTests
             var data = new float[clip.samples];
             clip.GetData(data, 0);
             return data.Max(Mathf.Abs);
+        }
+
+        [UnityTest]
+        public IEnumerator Level_IsRememberedWhenTheSceneIsReloaded()
+        {
+            view.CycleLevel();
+            Assert.AreEqual("Hard", view.LevelName);
+
+            SceneManager.LoadScene("Main");
+            yield return null;
+            yield return null;
+            view = Object.FindFirstObjectByType<ChessView>();
+            Assert.AreEqual("Hard", view.LevelName, "the saved level came back");
+        }
+
+        [UnityTest]
+        public IEnumerator LastMove_IsRingedOnBothSquares_AndClearedByNewGame()
+        {
+            Assert.AreEqual(0, view.MarkCount);
+            view.Click(Sq("e2"));
+            Assert.AreEqual(1 + 2, view.MarkCount, "selection + two targets");
+            view.Click(Sq("e4"));
+            Assert.AreEqual(8, view.MarkCount, "two rings of four slabs: e2 and e4");
+            yield return new WaitForSeconds(1.5f); // the AI answers: its move is now the last one
+            Assert.AreEqual(8, view.MarkCount);
+            yield return Shot("12_last_move_rings");
+
+            view.NewGame();
+            Assert.AreEqual(0, view.MarkCount);
+        }
+
+        [UnityTest]
+        public IEnumerator KingInCheck_GetsARedRing_AndTheStatusSaysSo()
+        {
+            view.StartFrom("7k/8/8/8/8/8/R7/K7 w - - 0 1");
+            yield return null;
+            view.Click(Sq("a2"));
+            view.Click(Sq("a8"));
+            Assert.AreEqual("Check! AI is thinking...", view.StatusText);
+            Assert.AreEqual(8 + 4, view.MarkCount, "last-move rings plus the ring round the black king");
+            yield return Shot("13_check_ring");
+        }
+
+        [UnityTest]
+        public IEnumerator MoveList_ShowsTheGameInNotation()
+        {
+            Assert.AreEqual("", view.MoveListText);
+            view.Click(Sq("e2"));
+            view.Click(Sq("e4"));
+            Assert.AreEqual("1. e4", view.MoveListText);
+            yield return new WaitForSeconds(1.5f);
+            StringAssert.StartsWith("1. e4 ", view.MoveListText);
+            yield return Shot("14_move_list");
+
+            view.Undo();
+            Assert.AreEqual("", view.MoveListText);
         }
 
         [UnityTest]

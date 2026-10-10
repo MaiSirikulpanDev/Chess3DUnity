@@ -105,6 +105,8 @@ namespace Chess.View
             {
                 GameStatus.Checkmate => b.WhiteToMove ? "Checkmate - Black (AI) wins" : "Checkmate - You win!",
                 GameStatus.Stalemate => "Stalemate - draw",
+                GameStatus.DrawRepetition => "Draw - threefold repetition",
+                GameStatus.DrawFiftyMove => "Draw - 50-move rule",
                 _ => b.WhiteToMove ? (check ? "Check! Your move" : "Your move (White)") : "AI is thinking...",
             };
         }

@@ -13,7 +13,7 @@ namespace Chess.Core
         public override string ToString() => Board.Name(From) + Board.Name(To) + (Promo == '\0' ? "" : Promo.ToString());
     }
 
-    public enum GameStatus { Ongoing, Checkmate, Stalemate }
+    public enum GameStatus { Ongoing, Checkmate, Stalemate, DrawRepetition, DrawFiftyMove }
 
     public static class MoveGen
     {

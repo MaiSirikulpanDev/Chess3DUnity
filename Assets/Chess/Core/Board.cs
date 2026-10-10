@@ -12,6 +12,7 @@ namespace Chess.Core
         public bool WhiteToMove = true;
         public string Castling = "";
         public int EnPassant = -1;
+        public int HalfmoveClock; // plies since the last pawn move or capture
 
         public char this[string square] => Squares[Sq(square)];
 
@@ -22,6 +23,20 @@ namespace Chess.Core
         public static bool Owns(bool white, char piece) => white ? char.IsUpper(piece) : char.IsLower(piece);
 
         public static Board Start() => FromFen(StartFen);
+
+        // Identifies a position for repetition: pieces, side to move, castling rights, and the en passant
+        // square only when a pawn could actually capture there. The clock is deliberately left out.
+        public string Key
+        {
+            get
+            {
+                int pushed = EnPassant + (WhiteToMove ? -8 : 8);
+                char pawn = WhiteToMove ? 'P' : 'p';
+                bool epLive = EnPassant >= 0 &&
+                    ((pushed % 8 > 0 && Squares[pushed - 1] == pawn) || (pushed % 8 < 7 && Squares[pushed + 1] == pawn));
+                return new string(Squares) + (WhiteToMove ? 'w' : 'b') + Castling + (epLive ? Name(EnPassant) : "");
+            }
+        }
 
         // Returns a new board; the original is left untouched.
         public Board Apply(Move m)
@@ -44,6 +59,7 @@ namespace Chess.Core
                 b.Squares[(m.From + m.To) / 2] = WhiteToMove ? 'R' : 'r';
             }
             foreach (char c in RightsOn(m.From) + RightsOn(m.To)) b.Castling = b.Castling.Replace(c.ToString(), "");
+            b.HalfmoveClock = kind == 'p' || Squares[m.To] != Empty ? 0 : HalfmoveClock + 1;
             return b;
         }
 
@@ -74,6 +90,7 @@ namespace Chess.Core
             b.WhiteToMove = parts[1] == "w";
             b.Castling = parts[2] == "-" ? "" : parts[2];
             b.EnPassant = parts[3] == "-" ? -1 : Sq(parts[3]);
+            if (parts.Length > 4) int.TryParse(parts[4], out b.HalfmoveClock);
             return b;
         }
     }

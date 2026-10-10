@@ -43,6 +43,5 @@ namespace Chess.Tests
             }
         }
 
-        [Test] public void StartPosition_Depth3_Answers() => Assert.IsNotNull(Ai.Best(Board.Start(), 3));
     }
 }

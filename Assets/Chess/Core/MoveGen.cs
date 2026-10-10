@@ -6,10 +6,11 @@ namespace Chess.Core
     public readonly struct Move
     {
         public readonly int From, To;
+        public readonly char Promo; // '\0', or q/r/b/n when a pawn promotes
 
-        public Move(int from, int to) { From = from; To = to; }
+        public Move(int from, int to, char promo = '\0') { From = from; To = to; Promo = promo; }
 
-        public override string ToString() => Board.Name(From) + Board.Name(To);
+        public override string ToString() => Board.Name(From) + Board.Name(To) + (Promo == '\0' ? "" : Promo.ToString());
     }
 
     public static class MoveGen
@@ -37,6 +38,7 @@ namespace Chess.Core
                     case 'q': Walk(b, from, AllDirs, 7, moves); break;
                 }
             }
+            Castle(b, moves);
             return moves;
         }
 
@@ -103,18 +105,44 @@ namespace Chess.Core
             int ahead = from + 8 * dir;
             if (ahead < 0 || ahead > 63) return;
 
+            void Add(int to)
+            {
+                if (to / 8 == (b.WhiteToMove ? 7 : 0)) foreach (char p in "qrbn") moves.Add(new Move(from, to, p));
+                else moves.Add(new Move(from, to));
+            }
+
             if (b.Squares[ahead] == Board.Empty)
             {
-                moves.Add(new Move(from, ahead));
+                Add(ahead);
                 if (r == startRank && b.Squares[ahead + 8 * dir] == Board.Empty)
                     moves.Add(new Move(from, ahead + 8 * dir));
             }
             for (int df = -1; df <= 1; df += 2)
             {
                 if (f + df < 0 || f + df > 7) continue;
-                if (Board.Owns(!b.WhiteToMove, b.Squares[ahead + df]))
-                    moves.Add(new Move(from, ahead + df));
+                if (Board.Owns(!b.WhiteToMove, b.Squares[ahead + df]) || ahead + df == b.EnPassant)
+                    Add(ahead + df);
             }
+        }
+
+        static void Castle(Board b, List<Move> moves)
+        {
+            bool w = b.WhiteToMove;
+            int k = w ? 4 : 60;
+            if (b.Squares[k] != (w ? 'K' : 'k') || IsAttacked(b, k, !w)) return;
+            char rook = w ? 'R' : 'r';
+            if (b.Castling.IndexOf(w ? 'K' : 'k') >= 0 && b.Squares[k + 3] == rook && CanPass(b, k, 1, 2, w))
+                moves.Add(new Move(k, k + 2));
+            if (b.Castling.IndexOf(w ? 'Q' : 'q') >= 0 && b.Squares[k - 4] == rook && b.Squares[k - 3] == Board.Empty && CanPass(b, k, -1, 2, w))
+                moves.Add(new Move(k, k - 2));
+        }
+
+        // The squares the king crosses and lands on must be empty and unattacked.
+        static bool CanPass(Board b, int k, int dir, int n, bool w)
+        {
+            for (int i = 1; i <= n; i++)
+                if (b.Squares[k + dir * i] != Board.Empty || IsAttacked(b, k + dir * i, !w)) return false;
+            return true;
         }
     }
 }

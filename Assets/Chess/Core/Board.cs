@@ -28,10 +28,27 @@ namespace Chess.Core
         {
             var b = new Board { WhiteToMove = !WhiteToMove, Castling = Castling };
             Array.Copy(Squares, b.Squares, 64);
-            b.Squares[m.To] = Squares[m.From];
+            char piece = Squares[m.From];
+            char kind = char.ToLower(piece);
             b.Squares[m.From] = Empty;
+            b.Squares[m.To] = m.Promo == '\0' ? piece : (char.IsUpper(piece) ? char.ToUpper(m.Promo) : m.Promo);
+
+            if (kind == 'p')
+            {
+                if (m.To == EnPassant && m.From % 8 != m.To % 8) b.Squares[m.To + (WhiteToMove ? -8 : 8)] = Empty;
+                if (Math.Abs(m.To - m.From) == 16) b.EnPassant = (m.From + m.To) / 2;
+            }
+            if (kind == 'k' && Math.Abs(m.To - m.From) == 2)
+            {
+                b.Squares[m.To > m.From ? m.From + 3 : m.From - 4] = Empty;
+                b.Squares[(m.From + m.To) / 2] = WhiteToMove ? 'R' : 'r';
+            }
+            foreach (char c in RightsOn(m.From) + RightsOn(m.To)) b.Castling = b.Castling.Replace(c.ToString(), "");
             return b;
         }
+
+        // Castling rights that die when something moves from, or lands on, this square.
+        static string RightsOn(int sq) => sq switch { 0 => "Q", 7 => "K", 4 => "KQ", 56 => "q", 63 => "k", 60 => "kq", _ => "" };
 
         public static Board FromFen(string fen)
         {

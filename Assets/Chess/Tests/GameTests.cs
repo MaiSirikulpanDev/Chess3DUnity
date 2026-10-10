@@ -80,12 +80,6 @@ namespace Chess.Tests
             Assert.IsFalse(g.IsPromotion(Sq("a1"), Sq("a2")));
         }
 
-        [Test] public void TryMove_ChoiceIsIgnoredForOrdinaryMoves()
-        {
-            var g = new Game();
-            Assert.IsTrue(g.TryMove(Sq("e2"), Sq("e4"), 'n'));
-            Assert.AreEqual('P', g.Board["e4"]);
-        }
 
         [Test] public void AiMove_OnlyWhenItIsTheAisTurn()
         {

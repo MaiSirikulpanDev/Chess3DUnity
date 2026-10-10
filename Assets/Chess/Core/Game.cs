@@ -36,6 +36,10 @@ namespace Chess.Core
             ? Enumerable.Empty<int>()
             : MoveGen.Legal(Board).Where(m => m.From == from).Select(m => m.To).Distinct();
 
+        // A move that ends the game in a draw (never a mate: that is a win).
+        bool WouldDraw(Board next) =>
+            (next.HalfmoveClock >= 100 || seen.Count(k => k == next.Key) >= 2) && MoveGen.Status(next) == GameStatus.Ongoing;
+
         // Plays a move for either side. Callers pass moves taken from MoveGen.Legal.
         public void Play(Move m)
         {
@@ -58,7 +62,7 @@ namespace Chess.Core
 
         public bool AiMove(int depth = 4)
         {
-            if (HumanTurn || Ai.Best(Board, depth) is not Move m) return false;
+            if (HumanTurn || Ai.Best(Board, depth, WouldDraw) is not Move m) return false;
             Play(m);
             return true;
         }

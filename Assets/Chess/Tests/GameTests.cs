@@ -72,6 +72,21 @@ namespace Chess.Tests
             Assert.IsFalse(g.AiMove(2));
         }
 
+        [Test] public void AiAhead_DoesNotWalkIntoTheFiftyMoveDraw()
+        {
+            // Clock 99: the AI would naturally play a quiet queen move (a2a8) and draw; it must reset the clock instead.
+            var g = new Game("7k/6p1/8/8/8/8/q7/6RK b - - 99 80");
+            Assert.IsTrue(g.AiMove(3));
+            Assert.AreEqual(GameStatus.Ongoing, g.Status);
+        }
+
+        [Test] public void AiTakesTheMate_EvenOnTheHundredthHalfmove()
+        {
+            var g = new Game("r3k3/8/8/8/8/8/5PPP/6K1 b - - 99 80");
+            Assert.IsTrue(g.AiMove(3));
+            Assert.AreEqual(GameStatus.Checkmate, g.Status);
+        }
+
         [Test] public void Restart_ReturnsToTheStartingPosition()
         {
             var g = new Game();

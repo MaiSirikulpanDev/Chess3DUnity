@@ -1,3 +1,4 @@
+using System;
 using System.Linq;
 using Chess.Core;
 using NUnit.Framework;
@@ -30,6 +31,25 @@ namespace Chess.Tests
         {
             Assert.IsNull(Ai.Best(Board.FromFen("rnb1kbnr/pppp1ppp/8/4p3/6Pq/5P2/PPPPP2P/RNBQKBNR w KQkq - 1 3"), 3));
             Assert.IsNull(Ai.Best(Board.FromFen("7k/5Q2/6K1/8/8/8/8/8 b - - 0 1"), 3));
+        }
+
+        // A draw is worth 0 to the AI: it dodges one when ahead and grabs one when behind.
+        static Func<Board, bool> Flag(Board b, Move m) { var key = b.Apply(m).Key; return next => next.Key == key; }
+
+        [Test] public void WhenAhead_AvoidsAMoveThatWouldDraw()
+        {
+            var b = Board.FromFen("k7/8/8/8/8/8/8/KQ6 w - - 0 1");
+            var best = Ai.Best(b, 3).Value;
+            var other = Ai.Best(b, 3, Flag(b, best)).Value;
+            Assert.AreNotEqual(best.ToString(), other.ToString());
+        }
+
+        [Test] public void WhenBehind_TakesTheDraw()
+        {
+            var b = Board.FromFen("8/8/8/4k3/8/8/8/KR6 b - - 0 1");
+            var best = Ai.Best(b, 3).Value;
+            var drawing = MoveGen.Legal(b).First(m => m.ToString() != best.ToString());
+            Assert.AreEqual(drawing.ToString(), Ai.Best(b, 3, Flag(b, drawing)).Value.ToString());
         }
 
         [Test] public void PlaysOnlyLegalMoves_ThroughAWholeGame()

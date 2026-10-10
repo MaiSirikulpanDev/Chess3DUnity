@@ -8,13 +8,15 @@ namespace Chess.Core
     {
         const int Mate = 100000;
 
-        public static Move? Best(Board b, int depth)
+        // `isDraw` flags moves that would end the game in a draw; those score 0 instead of their search value.
+        public static Move? Best(Board b, int depth, Func<Board, bool> isDraw = null)
         {
             Move? best = null;
             int alpha = -2 * Mate;
             foreach (var m in Ordered(b))
             {
-                int score = -Search(b.Apply(m), depth - 1, -2 * Mate, -alpha, 1);
+                var next = b.Apply(m);
+                int score = isDraw?.Invoke(next) == true ? 0 : -Search(next, depth - 1, -2 * Mate, -alpha, 1);
                 if (score > alpha) { alpha = score; best = m; }
             }
             return best;

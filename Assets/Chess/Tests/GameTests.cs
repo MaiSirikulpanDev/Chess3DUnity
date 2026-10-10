@@ -184,6 +184,50 @@ namespace Chess.Tests
             Assert.AreEqual(GameStatus.Ongoing, g.Status);
         }
 
+        static void PlayAll(Game g, params string[] ucis)
+        {
+            foreach (var uci in ucis) g.Play(MoveGen.Legal(g.Board).Single(m => m.ToString() == uci));
+        }
+
+        [Test] public void LastMove_IsNullAtStart_ThenTheMoveJustPlayed_ForEitherSide()
+        {
+            var g = new Game();
+            Assert.IsNull(g.LastMove);
+            PlayAll(g, "e2e4");
+            Assert.AreEqual("e2e4", g.LastMove.ToString());
+            PlayAll(g, "e7e5");
+            Assert.AreEqual("e7e5", g.LastMove.ToString());
+        }
+
+        [Test] public void Undo_RestoresThePreviousLastMove()
+        {
+            var g = new Game();
+            PlayAll(g, "e2e4", "e7e5", "g1f3", "b8c6");
+            g.Undo(); // back to the position before Nf3
+            Assert.AreEqual("e7e5", g.LastMove.ToString());
+            g.Undo();
+            Assert.IsNull(g.LastMove);
+        }
+
+        [Test] public void MoveList_NumbersTheMoves_AndKeepsOnlyTheLastLines()
+        {
+            var g = new Game();
+            PlayAll(g, "e2e4", "e7e5", "g1f3");
+            Assert.AreEqual("1. e4 e5\n2. Nf3", g.MoveListText());
+            PlayAll(g, "b8c6", "f1b5", "a7a6");
+            Assert.AreEqual("2. Nf3 Nc6\n3. Bb5 a6", g.MoveListText(2));
+        }
+
+        [Test] public void MoveList_FollowsUndoAndRestart()
+        {
+            var g = new Game();
+            PlayAll(g, "e2e4", "e7e5", "g1f3", "b8c6");
+            g.Undo();
+            Assert.AreEqual("1. e4 e5", g.MoveListText());
+            g.Restart();
+            Assert.AreEqual("", g.MoveListText());
+        }
+
         [Test] public void Restart_ClearsTheUndoHistory()
         {
             var g = new Game();

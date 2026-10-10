@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Generic;
 using System.Linq;
 
@@ -8,10 +9,12 @@ namespace Chess.Core
     {
         readonly string startFen;
         readonly List<Board> history = new List<Board>(); // every earlier position: undo, and the repetition count
+        readonly List<(Move move, string san)> played = new List<(Move move, string san)>(); // parallel to history
 
         public Board Board { get; private set; }
         public bool HumanTurn => Board.WhiteToMove;
         public bool CanUndo => history.Count > 0;
+        public Move? LastMove => played.Count > 0 ? played[played.Count - 1].move : (Move?)null;
 
         public GameStatus Status
         {
@@ -31,6 +34,7 @@ namespace Chess.Core
         {
             Board = Board.FromFen(startFen);
             history.Clear();
+            played.Clear();
         }
 
         // Goes back to the start of the human's previous turn: takes back the AI's reply if it has moved,
@@ -42,8 +46,17 @@ namespace Chess.Core
             {
                 Board = history[history.Count - 1];
                 history.RemoveAt(history.Count - 1);
+                played.RemoveAt(played.Count - 1);
             } while (!HumanTurn && CanUndo);
             return true;
+        }
+
+        // "1. e4 e5" per line, the last `maxLines` lines only. Assumes White made the first move.
+        public string MoveListText(int maxLines = 12)
+        {
+            var lines = Enumerable.Range(0, (played.Count + 1) / 2)
+                .Select(i => (i + 1) + ". " + string.Join(" ", played.Skip(2 * i).Take(2).Select(p => p.san)));
+            return string.Join("\n", lines.Skip(Math.Max(0, (played.Count + 1) / 2 - maxLines)));
         }
 
         public IEnumerable<int> TargetsFrom(int from) => !HumanTurn
@@ -57,6 +70,7 @@ namespace Chess.Core
         // Plays a move for either side. Callers pass moves taken from MoveGen.Legal.
         public void Play(Move m)
         {
+            played.Add((m, Notation.San(Board, m)));
             history.Add(Board);
             Board = Board.Apply(m);
         }

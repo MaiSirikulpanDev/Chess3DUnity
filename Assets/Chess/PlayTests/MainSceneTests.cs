@@ -166,6 +166,34 @@ namespace Chess.PlayTests
             yield return Shot("10_view_from_the_side");
         }
 
+        [UnityTest]
+        public IEnumerator Tilting_StopsAtParallelWithTheBoard_NeverSeeingUnderIt()
+        {
+            view.TiltView(-500); // far more than is possible
+            yield return new WaitForSeconds(1.5f);
+            var cam = Camera.main.transform;
+            Assert.AreEqual(0.068f, cam.position.y, 0.01f, "eye level with the playing surface, not below it");
+            Assert.AreEqual(0f, cam.forward.y, 0.01f, "looking along the board");
+            yield return Shot("15_view_parallel_to_the_board");
+
+            view.TiltView(500);
+            yield return new WaitForSeconds(1.5f);
+            var fromAim = cam.position - new Vector3(0, 0.068f, 0);
+            Assert.AreEqual(85f, Mathf.Asin(fromAim.y / fromAim.magnitude) * Mathf.Rad2Deg, 1.5f, "almost straight down, not flipped over");
+            yield return Shot("16_view_from_above");
+        }
+
+        [UnityTest]
+        public IEnumerator Tilting_KeepsEverySquareClickable_AtAnAngle()
+        {
+            view.TiltView(-30); // from about 49 degrees to about 19
+            yield return new WaitForSeconds(1.5f);
+            AssertEverySquareIsClickable();
+            view.RotateView(90);
+            yield return new WaitForSeconds(1.5f);
+            AssertEverySquareIsClickable();
+        }
+
         void AssertEverySquareIsClickable()
         {
             for (int sq = 0; sq < 64; sq++)

@@ -37,8 +37,8 @@ namespace Chess.View
         Transform marksRoot; // keeps highlight slabs out of the pieces' parent
         Text moveListText;
         int level = 1;
-        Vector3 cameraOffset; // where the camera starts, relative to the board centre
-        float yaw, targetYaw;
+        float cameraDistance; // from the middle of the board, kept while orbiting
+        float yaw, targetYaw, pitch, targetPitch;
         AudioSource speaker;
         Font font;
 
@@ -56,7 +56,9 @@ namespace Chess.View
         {
             level = Mathf.Clamp(PlayerPrefs.GetInt(LevelKey, level), 0, Levels.Length - 1);
             marksRoot = new GameObject("Marks").transform;
-            cameraOffset = Camera.main.transform.position;
+            var start = Camera.main.transform.position - new Vector3(0, FieldY, 0);
+            cameraDistance = start.magnitude;
+            pitch = targetPitch = Mathf.Asin(start.y / cameraDistance) * Mathf.Rad2Deg;
             speaker = gameObject.AddComponent<AudioSource>();
             MoveClip = Thump("move", 180, 0.09f, 0.5f, 45, 0.5f);
             CaptureClip = Thump("capture", 90, 0.28f, 0.6f, 14, 0.9f);
@@ -96,22 +98,38 @@ namespace Chess.View
             return f >= 0 && f < 8 && r >= 0 && r < 8 ? r * 8 + f : -1;
         }
 
-        // Turns the camera round the board: A/D or the arrow keys, right mouse drag, or the Flip View button.
+        // Turns the camera round the board (A/D or left/right arrows, right-drag sideways, Flip View) and tilts it
+        // (W/S or up/down arrows, right-drag up and down). It can come down level with the playing surface but no
+        // lower, so the underside of the board is never in view, and up to almost straight above.
         void OrbitCamera()
         {
             var keys = Keyboard.current;
             if (keys != null)
+            {
                 targetYaw += ((keys.dKey.isPressed || keys.rightArrowKey.isPressed ? 1 : 0) - (keys.aKey.isPressed || keys.leftArrowKey.isPressed ? 1 : 0)) * 90f * Time.deltaTime;
+                TiltView(((keys.wKey.isPressed || keys.upArrowKey.isPressed ? 1 : 0) - (keys.sKey.isPressed || keys.downArrowKey.isPressed ? 1 : 0)) * 60f * Time.deltaTime);
+            }
             if (Mouse.current != null && Mouse.current.rightButton.isPressed)
-                targetYaw += Mouse.current.delta.ReadValue().x * 0.3f;
+            {
+                var drag = Mouse.current.delta.ReadValue();
+                targetYaw += drag.x * 0.3f;
+                TiltView(-drag.y * 0.3f); // pulling the board towards you lifts the camera
+            }
 
-            yaw = Mathf.LerpAngle(yaw, targetYaw, 1 - Mathf.Exp(-10 * Time.deltaTime));
+            float ease = 1 - Mathf.Exp(-10 * Time.deltaTime);
+            yaw = Mathf.LerpAngle(yaw, targetYaw, ease);
+            pitch = Mathf.Lerp(pitch, targetPitch, ease);
             var cam = Camera.main.transform;
-            cam.position = Quaternion.Euler(0, yaw, 0) * cameraOffset;
-            cam.LookAt(Vector3.zero);
+            var aim = new Vector3(0, FieldY, 0);
+            var direction = new Vector3(0, Mathf.Sin(pitch * Mathf.Deg2Rad), -Mathf.Cos(pitch * Mathf.Deg2Rad));
+            cam.position = aim + Quaternion.Euler(0, yaw, 0) * (direction * cameraDistance);
+            cam.LookAt(aim);
         }
 
         public void RotateView(float degrees) => targetYaw += degrees;
+
+        // Degrees above the horizon: 0 is level with the board, 85 almost straight down.
+        public void TiltView(float degrees) => targetPitch = Mathf.Clamp(targetPitch + degrees, 0, 85);
 
         // Starts a game from an arbitrary position (used by tests).
         public void StartFrom(string fen)

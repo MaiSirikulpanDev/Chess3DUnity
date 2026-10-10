@@ -397,6 +397,7 @@ namespace Chess.View
             statusText = textGo.GetComponent<Text>();
             statusText.font = font; statusText.fontSize = 32; statusText.color = Color.white;
             statusText.alignment = TextAnchor.UpperCenter;
+            textGo.AddComponent<Outline>().effectColor = new Color(0, 0, 0, 0.8f); // stays readable over grass and sky
             Place(textGo, new Vector2(0.5f, 1), new Vector2(0, -20), new Vector2(900, 50));
 
             MakeButton(canvasGo.transform, "New Game", new Vector2(1, 1), new Vector2(-110, -40), new Vector2(180, 50), NewGame);
@@ -410,6 +411,7 @@ namespace Chess.View
             moveListText = listGo.GetComponent<Text>();
             moveListText.font = font; moveListText.fontSize = 24; moveListText.color = new Color(1, 1, 1, 0.9f);
             moveListText.alignment = TextAnchor.UpperLeft;
+            listGo.AddComponent<Outline>().effectColor = new Color(0, 0, 0, 0.8f);
             Place(listGo, new Vector2(0, 1), new Vector2(20, -90), new Vector2(230, 420));
 
             picker = new GameObject("Promotion", typeof(Image));

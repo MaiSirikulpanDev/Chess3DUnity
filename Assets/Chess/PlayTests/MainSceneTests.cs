@@ -194,6 +194,38 @@ namespace Chess.PlayTests
             AssertEverySquareIsClickable();
         }
 
+        // ---- the forest around the board ----
+        [Test]
+        public void TheBoard_SitsOnAStump_WhoseTopIsRightUnderIt()
+        {
+            var stump = GameObject.Find("Stump");
+            Assert.IsNotNull(stump, "the stump the board stands on");
+            var bounds = stump.GetComponentInChildren<Renderer>().bounds;
+            Assert.AreEqual(-0.277f, bounds.max.y, 0.03f, "its top meets the underside of the board");
+            Assert.Greater(bounds.size.x, 14.6f, "wide enough to carry the board");
+            Assert.Greater(bounds.size.z, 14.6f);
+            Assert.Less(Mathf.Abs(bounds.center.x), 8f, "centred under the board");
+        }
+
+        [Test]
+        public void TheForest_StaysOutsideTheCameraOrbit_AndFillsTheDistance()
+        {
+            var forest = GameObject.Find("Forest");
+            Assert.IsNotNull(forest);
+            var trees = forest.GetComponentsInChildren<Transform>().Where(t => t.name.StartsWith("PT_Pine_Tree") || t.name.StartsWith("PT_Fruit_Tree")).ToList();
+            Assert.Greater(trees.Count, 40, "a forest, not a few trees");
+            Assert.IsTrue(trees.All(t => new Vector2(t.position.x, t.position.z).magnitude > 30f), "none close enough for the camera to pass through");
+            Assert.IsTrue(RenderSettings.fog, "mist thins the far trees");
+        }
+
+        [Test]
+        public void TheGround_IsBelowTheStump()
+        {
+            var ground = GameObject.Find("Ground");
+            Assert.IsNotNull(ground);
+            Assert.Less(ground.transform.position.y, GameObject.Find("Stump").GetComponentInChildren<Renderer>().bounds.center.y);
+        }
+
         void AssertEverySquareIsClickable()
         {
             for (int sq = 0; sq < 64; sq++)

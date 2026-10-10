@@ -19,3 +19,10 @@ A single-player 3D chess game. Play White against a built-in AI. Built with Unit
 3. Turn the camera with A/D or left/right arrows and tilt it with W/S or up/down arrows (or right-mouse drag); the lowest it goes is level with the board. **Flip View** swings it to the other side. **Level** cycles Easy/Normal/Hard (remembered between runs). The last move is ringed in orange, a king in check in red, and the moves are listed at the top left. **Undo** takes back your last move and the AI reply; **New Game** (top right) restarts. A pawn reaching the last rank asks which piece to become.
 
 PlayMode tests (`Assets/Chess/PlayTests`) load the scene, click through a move and save screenshots to `Logs/shots/`.
+
+## Forest scene
+
+The board stands on a giant tree stump in a clearing, ringed by pines and broadleaf trees (Polytope Studio
+**Low Poly Environment - Nature Free**). After importing that pack, also import its
+`Lowpoly_Environments/URP/PT_Nature_Free_URP_17.unitypackage` (the pack's shaders are Built-in otherwise), then run
+**Chess > Build Scene**. The forest uses a fixed random seed, so rebuilding gives the same layout.

@@ -15,8 +15,8 @@ namespace Chess.View
         // Prefabs in the order King, Queen, Bishop, Knight, Rook, Pawn.
         public GameObject[] whitePrefabs, blackPrefabs;
         public Material highlight;
-        public float squareSize = 1.5f;
-        public int aiDepth = 4;
+        const float squareSize = 1.5f; // 12 units of playing area on the board model / 8
+        const int aiDepth = 4;
 
         const float FieldY = 0.068f; // surface of the playing squares on the board model
         const string Order = "KQBNRP";
@@ -86,8 +86,8 @@ namespace Chess.View
             Refresh();
         }
 
-        // Jump every piece to its square at once (tests and restart skip the slide animation).
-        public void SnapAll()
+        // Jump every piece to its square at once, skipping the slide animation.
+        void SnapAll()
         {
             for (int sq = 0; sq < 64; sq++)
                 if (pieces[sq] != null) pieces[sq].transform.position = SquarePos(sq);
